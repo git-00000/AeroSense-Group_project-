@@ -2,6 +2,7 @@ import requests
 import random
 import io
 import datetime
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from flask import Flask, render_template, request, jsonify, send_file
 
 from reportlab.lib.pagesizes import A4
@@ -38,7 +39,7 @@ def aqi_meta(aqi):
 
 def get_real_aqi(city):
     try:
-        data = requests.get(BASE_URL.format(city=city, token=WAQI_TOKEN)).json()
+        data = requests.get(BASE_URL.format(city=city, token=WAQI_TOKEN), timeout=5).json()
         if data['status'] == 'ok':
             aqi = data['data']['aqi']
             status, color, bg, _, _ = aqi_meta(aqi)
@@ -303,10 +304,16 @@ def download_report(city):
 def dashboard():
     featured  = ["Delhi", "New York", "London", "Tokyo", "Paris", "Beijing"]
     city_data = []
-    for c in featured:
-        r = get_real_aqi(c)
-        if "error" not in r:
-            city_data.append(r)
+    # Fetch all cities in parallel — much faster than sequential on Render free tier
+    with ThreadPoolExecutor(max_workers=6) as executor:
+        futures = {executor.submit(get_real_aqi, c): c for c in featured}
+        for future in as_completed(futures):
+            r = future.result()
+            if "error" not in r:
+                city_data.append(r)
+    # Sort to keep consistent order
+    order = {c: i for i, c in enumerate(featured)}
+    city_data.sort(key=lambda x: order.get(x.get("city", ""), 99))
     return render_template('dashboard.html', cities=city_data)
 
 
