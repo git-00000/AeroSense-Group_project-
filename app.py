@@ -1,10 +1,8 @@
 import requests
 import random
 import io
-import os
-import tempfile
 import datetime
-from flask import Flask, render_template, request, jsonify, send_file, after_this_request
+from flask import Flask, render_template, request, jsonify, send_file
 
 from reportlab.lib.pagesizes import A4
 from reportlab.lib import colors
@@ -98,8 +96,9 @@ def get_detailed_aqi(city):
         return {"error": str(e)}
 
 
-def generate_report_pdf(d, output_path):
-    """Generate PDF and write to output_path (a real file path)."""
+def generate_report_pdf(d):
+    """Generate PDF into a BytesIO buffer and return it. No temp files needed."""
+    buf = io.BytesIO()
     W = 170*mm
 
     TEAL  = colors.HexColor("#0d9488")
@@ -113,7 +112,7 @@ def generate_report_pdf(d, output_path):
                  colors.HexColor("#991b1b") if aqi <= 150 else
                  colors.HexColor("#7f1d1d"))
 
-    doc = SimpleDocTemplate(output_path, pagesize=A4,
+    doc = SimpleDocTemplate(buf, pagesize=A4,
                             rightMargin=20*mm, leftMargin=20*mm,
                             topMargin=15*mm,   bottomMargin=15*mm)
     styles = getSampleStyleSheet()
@@ -123,11 +122,11 @@ def generate_report_pdf(d, output_path):
 
     story = []
 
-    # ── Header banner (with date top-right) ─────────────────────────
+    # ── Header banner (date top-right) ───────────────────────────────
     now_str = datetime.datetime.now().strftime("%d %B %Y, %I:%M %p")
     banner = Table([[
         [P("<b>EcoPredict</b>", fontSize=20, textColor=colors.white, fontName="Helvetica-Bold"),
-         P("", fontSize=10, textColor=colors.HexColor("#94a3b8"))],
+         P("Air Quality Report", fontSize=10, textColor=colors.HexColor("#94a3b8"))],
         P("Generated: " + now_str, fontSize=9,
           textColor=colors.HexColor("#94a3b8"), alignment=2)
     ]], colWidths=[W * 0.6, W * 0.4])
@@ -252,6 +251,8 @@ def generate_report_pdf(d, output_path):
     ]
 
     doc.build(story)
+    buf.seek(0)
+    return buf
 
 
 # ── Routes ──────────────────────────────────────────────────────────────
@@ -288,26 +289,10 @@ def download_report(city):
     d = get_detailed_aqi(city)
     if "error" in d:
         return "City not found: " + city, 404
-
-    # Write to a real temp file — works reliably in all Flask versions
-    tmp = tempfile.NamedTemporaryFile(delete=False, suffix='.pdf')
-    tmp_path = tmp.name
-    tmp.close()
-
-    generate_report_pdf(d, tmp_path)
-
-    # Clean up the temp file after the response is sent
-    @after_this_request
-    def remove_file(response):
-        try:
-            os.remove(tmp_path)
-        except Exception:
-            pass
-        return response
-
+    buf = generate_report_pdf(d)
     filename = "EcoPredict_" + city.replace(' ', '_') + "_Report.pdf"
     return send_file(
-        tmp_path,
+        buf,
         as_attachment=True,
         download_name=filename,
         mimetype='application/pdf'
@@ -336,4 +321,4 @@ def forecast():
 
 
 if __name__ == '__main__':
-    app.run(debug=True, port=8080)
+    app.run(debug=False)
