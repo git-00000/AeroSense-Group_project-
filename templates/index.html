@@ -1,127 +1,621 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>EcoPredict - AI Air Intelligence</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
-    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>BreathIQ — Air Quality Intelligence</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;1,9..40,300&family=DM+Serif+Display:ital@0;1&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --teal: #0f9e8a;
+    --teal-dark: #0a7a6b;
+    --teal-light: #e0f5f2;
+    --teal-glow: rgba(15,158,138,0.15);
+    --ink: #0d1f1c;
+    --muted: #4a6260;
+    --surface: #f4f9f8;
+    --white: #ffffff;
+    --border: rgba(15,158,138,0.15);
+    --good: #16a34a;
+    --moderate: #ca8a04;
+    --usg: #ea580c;
+    --unhealthy: #dc2626;
+    --radius: 16px;
+    --font: 'DM Sans', sans-serif;
+    --serif: 'DM Serif Display', serif;
+  }
+
+  html { scroll-behavior: smooth; }
+
+  body {
+    font-family: var(--font);
+    background: var(--surface);
+    color: var(--ink);
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* ── Background orbs ── */
+  .bg-orbs {
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    z-index: 0;
+    overflow: hidden;
+  }
+  .orb {
+    position: absolute;
+    border-radius: 50%;
+    filter: blur(80px);
+    opacity: 0.35;
+    animation: drift 12s ease-in-out infinite alternate;
+  }
+  .orb-1 { width: 600px; height: 600px; background: radial-gradient(circle, #b2f5ea, transparent 70%); top: -200px; left: -150px; animation-delay: 0s; }
+  .orb-2 { width: 400px; height: 400px; background: radial-gradient(circle, #a7f3d0, transparent 70%); bottom: 10%; right: -100px; animation-delay: 3s; }
+  .orb-3 { width: 300px; height: 300px; background: radial-gradient(circle, #6ee7b7, transparent 70%); top: 40%; left: 30%; animation-delay: 6s; }
+  @keyframes drift { from { transform: translate(0,0) scale(1); } to { transform: translate(30px, 20px) scale(1.05); } }
+
+  /* ── Nav ── */
+  nav {
+    position: fixed; top: 0; left: 0; right: 0; z-index: 100;
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 0 40px;
+    height: 64px;
+    background: rgba(244,249,248,0.85);
+    backdrop-filter: blur(16px);
+    border-bottom: 1px solid var(--border);
+  }
+  .nav-logo {
+    display: flex; align-items: center; gap: 10px;
+    font-family: var(--serif); font-size: 22px; color: var(--ink); text-decoration: none;
+  }
+  .nav-logo-icon {
+    width: 32px; height: 32px; border-radius: 8px;
+    background: linear-gradient(135deg, var(--teal), var(--teal-dark));
+    display: flex; align-items: center; justify-content: center;
+  }
+  .nav-logo-icon svg { width: 18px; height: 18px; fill: white; }
+  .nav-links { display: flex; align-items: center; gap: 4px; }
+  .nav-links a {
+    padding: 8px 16px; border-radius: 8px;
+    font-size: 14px; font-weight: 500; color: var(--muted);
+    text-decoration: none; transition: all 0.2s;
+  }
+  .nav-links a:hover, .nav-links a.active {
+    background: var(--teal-light); color: var(--teal-dark);
+  }
+  .nav-cta {
+    padding: 8px 20px; border-radius: 8px;
+    background: var(--teal); color: white;
+    font-size: 14px; font-weight: 500;
+    text-decoration: none; transition: all 0.2s;
+  }
+  .nav-cta:hover { background: var(--teal-dark); transform: translateY(-1px); }
+
+  /* ── Hero ── */
+  .hero {
+    position: relative; z-index: 1;
+    min-height: 100vh;
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    padding: 120px 24px 80px;
+    text-align: center;
+  }
+  .hero-badge {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 6px 14px; border-radius: 100px;
+    background: var(--teal-light); border: 1px solid rgba(15,158,138,0.25);
+    font-size: 13px; font-weight: 500; color: var(--teal-dark);
+    margin-bottom: 32px;
+    animation: fadeUp 0.6s ease both;
+  }
+  .hero-badge-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--teal); }
+  .hero-title {
+    font-family: var(--serif);
+    font-size: clamp(44px, 7vw, 88px);
+    line-height: 1.05;
+    color: var(--ink);
+    margin-bottom: 24px;
+    animation: fadeUp 0.6s 0.1s ease both;
+  }
+  .hero-title em { color: var(--teal); font-style: italic; }
+  .hero-subtitle {
+    font-size: clamp(16px, 2.5vw, 20px);
+    line-height: 1.6;
+    color: var(--muted);
+    max-width: 560px;
+    margin-bottom: 52px;
+    animation: fadeUp 0.6s 0.2s ease both;
+  }
+
+  /* ── Search ── */
+  .search-wrap {
+    width: 100%; max-width: 580px;
+    animation: fadeUp 0.6s 0.3s ease both;
+    margin-bottom: 24px;
+  }
+  .search-box {
+    display: flex; align-items: center;
+    background: var(--white);
+    border: 1.5px solid var(--border);
+    border-radius: 100px;
+    padding: 6px 6px 6px 24px;
+    box-shadow: 0 4px 24px rgba(15,158,138,0.1), 0 1px 4px rgba(0,0,0,0.05);
+    transition: all 0.3s;
+  }
+  .search-box:focus-within {
+    border-color: var(--teal);
+    box-shadow: 0 0 0 4px var(--teal-glow), 0 4px 24px rgba(15,158,138,0.15);
+  }
+  .search-box input {
+    flex: 1; border: none; outline: none; background: transparent;
+    font-family: var(--font); font-size: 16px; color: var(--ink);
+    padding: 4px 0;
+  }
+  .search-box input::placeholder { color: #9ab0ae; }
+  .search-btn {
+    flex-shrink: 0;
+    display: flex; align-items: center; gap: 8px;
+    padding: 12px 24px; border-radius: 100px;
+    background: linear-gradient(135deg, var(--teal), var(--teal-dark));
+    color: white; font-family: var(--font); font-size: 15px; font-weight: 500;
+    border: none; cursor: pointer; transition: all 0.2s;
+  }
+  .search-btn:hover { transform: scale(1.03); box-shadow: 0 4px 16px rgba(15,158,138,0.4); }
+  .search-btn:active { transform: scale(0.98); }
+  .search-hint {
+    font-size: 13px; color: #9ab0ae;
+    animation: fadeUp 0.6s 0.35s ease both;
+  }
+  .search-hint span { color: var(--teal); cursor: pointer; }
+  .search-hint span:hover { text-decoration: underline; }
+
+  /* ── Result card ── */
+  #result-section { display: none; width: 100%; max-width: 580px; margin-top: 32px; }
+  .result-card {
+    background: var(--white); border-radius: 20px;
+    border: 1px solid var(--border);
+    padding: 28px 32px;
+    box-shadow: 0 8px 40px rgba(0,0,0,0.06);
+    animation: fadeUp 0.4s ease both;
+  }
+  .result-top { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 20px; }
+  .result-city { font-size: 20px; font-weight: 600; color: var(--ink); }
+  .result-loc { font-size: 13px; color: var(--muted); margin-top: 2px; display: flex; align-items: center; gap: 4px; }
+  .result-aqi-wrap { text-align: right; }
+  .result-aqi-num {
+    font-family: var(--serif); font-size: 56px; line-height: 1;
+    font-weight: 400;
+  }
+  .result-aqi-label { font-size: 12px; font-weight: 500; color: var(--muted); letter-spacing: 0.5px; }
+  .aqi-bar-wrap { margin-bottom: 20px; }
+  .aqi-bar-track {
+    height: 8px; border-radius: 100px;
+    background: linear-gradient(to right, #16a34a 0%, #84cc16 25%, #eab308 50%, #ea580c 75%, #dc2626 100%);
+    position: relative; margin-bottom: 4px;
+  }
+  .aqi-bar-marker {
+    position: absolute; top: 50%; transform: translate(-50%, -50%);
+    width: 14px; height: 14px; border-radius: 50%;
+    background: white; border: 2px solid currentColor;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.2);
+    transition: left 0.8s cubic-bezier(0.34, 1.56, 0.64, 1);
+  }
+  .aqi-bar-labels { display: flex; justify-content: space-between; font-size: 11px; color: var(--muted); }
+  .status-badge {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 6px 14px; border-radius: 100px;
+    font-size: 13px; font-weight: 500;
+    margin-bottom: 16px;
+  }
+  .result-actions { display: flex; gap: 10px; flex-wrap: wrap; }
+  .btn-primary {
+    flex: 1; padding: 12px 20px; border-radius: 12px;
+    background: linear-gradient(135deg, var(--teal), var(--teal-dark));
+    color: white; font-family: var(--font); font-size: 14px; font-weight: 500;
+    border: none; cursor: pointer; text-align: center; text-decoration: none;
+    display: flex; align-items: center; justify-content: center; gap: 6px;
+    transition: all 0.2s;
+  }
+  .btn-primary:hover { transform: translateY(-1px); box-shadow: 0 4px 16px rgba(15,158,138,0.35); }
+  .btn-secondary {
+    padding: 12px 20px; border-radius: 12px;
+    background: var(--teal-light); color: var(--teal-dark);
+    font-family: var(--font); font-size: 14px; font-weight: 500;
+    border: none; cursor: pointer; text-decoration: none;
+    display: flex; align-items: center; gap: 6px; transition: all 0.2s;
+  }
+  .btn-secondary:hover { background: #c5eeea; }
+
+  /* ── Features strip ── */
+  .features {
+    position: relative; z-index: 1;
+    display: flex; flex-wrap: wrap; justify-content: center; gap: 16px;
+    padding: 0 24px 100px;
+    max-width: 1100px; margin: 0 auto;
+    animation: fadeUp 0.6s 0.5s ease both;
+  }
+  .feature-chip {
+    display: flex; align-items: center; gap: 10px;
+    padding: 12px 20px; border-radius: 12px;
+    background: var(--white); border: 1px solid var(--border);
+    font-size: 14px; color: var(--muted); font-weight: 400;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.03);
+  }
+  .feature-chip-icon {
+    width: 28px; height: 28px; border-radius: 8px;
+    background: var(--teal-light); display: flex; align-items: center; justify-content: center;
+    font-size: 14px;
+  }
+
+  /* ── Floating cities preview ── */
+  .cities-section {
+    position: relative; z-index: 1;
+    padding: 0 24px 80px;
+    text-align: center;
+  }
+  .section-label {
+    font-size: 12px; font-weight: 600; letter-spacing: 1px; text-transform: uppercase;
+    color: var(--teal); margin-bottom: 12px;
+  }
+  .section-title {
+    font-family: var(--serif); font-size: clamp(32px, 4vw, 48px);
+    line-height: 1.1; color: var(--ink); margin-bottom: 16px;
+  }
+  .section-desc { font-size: 16px; color: var(--muted); max-width: 480px; margin: 0 auto 48px; line-height: 1.6; }
+  .cities-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+    gap: 16px; max-width: 1000px; margin: 0 auto;
+  }
+  .city-card {
+    background: var(--white); border-radius: 16px;
+    border: 1px solid var(--border);
+    padding: 20px;
+    cursor: pointer; transition: all 0.25s;
+    text-decoration: none; color: inherit;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.03);
+    display: block;
+  }
+  .city-card:hover { transform: translateY(-4px); box-shadow: 0 12px 32px rgba(0,0,0,0.1); }
+  .city-card-top { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 12px; }
+  .city-name { font-weight: 600; font-size: 16px; color: var(--ink); }
+  .city-country { font-size: 12px; color: var(--muted); margin-top: 2px; }
+  .city-aqi-circle {
+    width: 48px; height: 48px; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-family: var(--serif); font-size: 17px; font-weight: 400;
+    border: 2px solid;
+  }
+  .city-status-bar { height: 4px; border-radius: 100px; margin-bottom: 10px; }
+  .city-status-text { font-size: 12px; font-weight: 500; }
+
+  /* ── How it works ── */
+  .how-section {
+    position: relative; z-index: 1;
+    padding: 80px 24px;
+    background: linear-gradient(180deg, transparent, rgba(15,158,138,0.04) 50%, transparent);
+  }
+  .how-grid {
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+    gap: 32px; max-width: 900px; margin: 0 auto;
+  }
+  .how-step { text-align: center; }
+  .how-num {
+    width: 48px; height: 48px; border-radius: 14px;
+    background: linear-gradient(135deg, var(--teal), var(--teal-dark));
+    color: white; font-family: var(--serif); font-size: 20px;
+    display: flex; align-items: center; justify-content: center;
+    margin: 0 auto 16px;
+  }
+  .how-title { font-size: 16px; font-weight: 600; color: var(--ink); margin-bottom: 8px; }
+  .how-desc { font-size: 14px; color: var(--muted); line-height: 1.6; }
+
+  /* ── Footer ── */
+  footer {
+    position: relative; z-index: 1;
+    padding: 40px 40px 32px;
+    border-top: 1px solid var(--border);
+    display: flex; align-items: center; justify-content: space-between; flex-wrap: gap;
+    gap: 16px;
+  }
+  .footer-logo { font-family: var(--serif); font-size: 18px; color: var(--ink); }
+  .footer-links { display: flex; gap: 24px; }
+  .footer-links a { font-size: 13px; color: var(--muted); text-decoration: none; }
+  .footer-links a:hover { color: var(--teal); }
+  .footer-copy { font-size: 12px; color: #9ab0ae; }
+
+  /* ── Loading & error states ── */
+  .search-loading { display: none; align-items: center; gap: 10px; font-size: 14px; color: var(--muted); margin-top: 12px; }
+  .search-loading.show { display: flex; }
+  .spinner {
+    width: 16px; height: 16px; border-radius: 50%;
+    border: 2px solid var(--border); border-top-color: var(--teal);
+    animation: spin 0.7s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .error-msg { font-size: 14px; color: #dc2626; margin-top: 10px; display: none; }
+  .error-msg.show { display: block; }
+
+  @keyframes fadeUp {
+    from { opacity: 0; transform: translateY(20px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  @media (max-width: 640px) {
+    nav { padding: 0 20px; }
+    .nav-links { display: none; }
+    .hero { padding: 100px 20px 60px; }
+    footer { flex-direction: column; text-align: center; padding: 32px 20px; }
+  }
+</style>
 </head>
-<body class="text-slate-800 bg-slate-50 min-h-screen">
+<body>
 
-    <nav class="flex items-center justify-between px-10 py-5 bg-white/40 backdrop-blur-md sticky top-0 z-50 border-b border-white/20">
-        <div class="flex items-center gap-2">
-            <div class="w-8 h-8 bg-teal-500 rounded-lg flex items-center justify-center text-white">
-                <i class="fas fa-leaf"></i>
-            </div>
-            <span class="text-2xl font-bold text-slate-700 tracking-tight">EcoPredict</span>
+<div class="bg-orbs">
+  <div class="orb orb-1"></div>
+  <div class="orb orb-2"></div>
+  <div class="orb orb-3"></div>
+</div>
+
+<!-- Nav -->
+<nav>
+  <a href="/" class="nav-logo">
+    <div class="nav-logo-icon">
+      <svg viewBox="0 0 24 24"><path d="M12 2a10 10 0 1 0 10 10A10 10 0 0 0 12 2zm0 2a8 8 0 1 1-8 8 8 8 0 0 1 8-8zm-1 3v6h5v-2h-3V7z"/></svg>
+    </div>
+    BreathIQ
+  </a>
+  <div class="nav-links">
+    <a href="/" class="active">Home</a>
+    <a href="/dashboard">Dashboard</a>
+    <a href="/forecast">Forecast</a>
+  </div>
+  <a href="/dashboard" class="nav-cta">Live Dashboard →</a>
+</nav>
+
+<!-- Hero -->
+<section class="hero">
+  <div class="hero-badge">
+    <div class="hero-badge-dot"></div>
+    Real-time Air Quality Intelligence
+  </div>
+  <h1 class="hero-title">
+    Know the air<br><em>before you breathe it</em>
+  </h1>
+  <p class="hero-subtitle">
+    BreathIQ tracks live AQI data for cities worldwide, giving you health insights, pollution forecasts, and AI-powered recommendations.
+  </p>
+
+  <div class="search-wrap">
+    <div class="search-box">
+      <input
+        type="text"
+        id="city-input"
+        placeholder="Search any city — Delhi, London, Tokyo…"
+        autocomplete="off"
+        onkeydown="if(event.key==='Enter') searchCity()"
+      >
+      <button class="search-btn" onclick="searchCity()">
+        <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+        Check AQI
+      </button>
+    </div>
+  </div>
+  <p class="search-hint">
+    Try: <span onclick="quickSearch('Delhi')">Delhi</span> ·
+    <span onclick="quickSearch('London')">London</span> ·
+    <span onclick="quickSearch('Tokyo')">Tokyo</span> ·
+    <span onclick="quickSearch('New York')">New York</span>
+  </p>
+
+  <div class="search-loading" id="search-loading">
+    <div class="spinner"></div>
+    Fetching live air quality data…
+  </div>
+  <div class="error-msg" id="error-msg">City not found. Please try another name.</div>
+
+  <div id="result-section">
+    <div class="result-card" id="result-card">
+      <div class="result-top">
+        <div>
+          <div class="result-city" id="res-city">—</div>
+          <div class="result-loc">
+            <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
+            Live reading
+          </div>
         </div>
-        <div class="hidden md:flex gap-8 font-medium text-slate-600">
-            <a href="/" class="hover:text-teal-600 transition-colors">Home</a>
-            <a href="/dashboard" class="hover:text-teal-600 transition-colors">Dashboard</a>
-            <a href="/forecast" class="hover:text-teal-600 transition-colors">AI Forecast</a>
+        <div class="result-aqi-wrap">
+          <div class="result-aqi-num" id="res-num" style="color: var(--teal)">—</div>
+          <div class="result-aqi-label">AQI</div>
         </div>
-    </nav>
+      </div>
 
-    <header class="max-w-7xl mx-auto px-6 py-20 text-left">
-        <div class="max-w-3xl">
-            <h1 class="text-6xl font-extrabold text-slate-900 leading-tight mb-4">
-                EcoPredict: AI-Powered <br> Air Quality Intelligence
-            </h1>
-            <p class="text-2xl text-slate-700 font-medium mb-1">Stay Informed. Plan Ahead.</p>
-            <p class="text-lg text-slate-500">Deep analysis of gases, pollutants, and safety recommendations.</p>
+      <div class="aqi-bar-wrap">
+        <div class="aqi-bar-track">
+          <div class="aqi-bar-marker" id="res-marker" style="left: 0%; color: var(--good)"></div>
         </div>
-    </header>
-
-    <main class="max-w-7xl mx-auto px-6 grid grid-cols-1 md:grid-cols-3 gap-8 mb-24">
-        
-        <div class="glass-card p-8 rounded-3xl shadow-xl flex flex-col bg-white/70 backdrop-blur-md border border-white">
-            <div class="flex justify-center mb-8">
-                <img src="https://cdn-icons-png.flaticon.com/512/854/854878.png" class="h-24 object-contain" alt="map">
-            </div>
-            <h3 class="text-2xl font-bold mb-4">Deep Search</h3>
-            <p class="text-sm text-slate-500 mb-6 text-center">Enter a city for full gas breakdown & source analysis.</p>
-            
-            <div class="flex gap-2 mb-4">
-                <input type="text" id="cityInput" placeholder="Enter City (e.g., Delhi)"
-                    class="flex-1 px-4 py-2 rounded-lg border border-slate-200 bg-white/50 text-sm focus:ring-2 focus:ring-teal-400 outline-none">
-                <button id="searchBtn" class="bg-teal-500 text-white px-4 py-2 rounded-lg hover:bg-teal-600 transition-colors">
-                    <i class="fas fa-search"></i>
-                </button>
-            </div>
-
-            <div id="statusMessage" class="text-center text-xs font-bold text-slate-400 mb-8 uppercase tracking-widest">
-                Waiting for input...
-            </div>
-
-            <button onclick="document.getElementById('searchBtn').click()" class="w-full py-4 rounded-full bg-teal-500 text-white font-bold mt-auto hover:bg-teal-600">Analyze Air</button>
+        <div class="aqi-bar-labels">
+          <span>Good (0)</span>
+          <span>Moderate (100)</span>
+          <span>Unhealthy (200+)</span>
         </div>
+      </div>
 
-        <div class="glass-card p-8 rounded-3xl shadow-xl flex flex-col bg-white/70 backdrop-blur-md border border-white">
-            <div class="flex justify-center mb-8">
-                <img src="https://cdn-icons-png.flaticon.com/512/3589/3589868.png" class="h-24 object-contain" alt="dashboard">
-            </div>
-            <h3 class="text-2xl font-bold mb-3">Metro Monitor</h3>
-            <p class="text-slate-600 leading-relaxed mb-8">Live AQI comparison of the world's major mega-cities.</p>
-            <a href="/dashboard" class="w-full py-4 rounded-full bg-teal-500 text-white text-center font-bold mt-auto hover:bg-teal-600">View Dashboard</a>
-        </div>
+      <div class="status-badge" id="res-badge">—</div>
 
-        <div class="glass-card p-8 rounded-3xl shadow-xl flex flex-col bg-white/70 backdrop-blur-md border border-white">
-            <div class="flex justify-center mb-8">
-                <img src="https://cdn-icons-png.flaticon.com/512/2103/2103633.png" class="h-24 object-contain" alt="AI">
-            </div>
-            <h3 class="text-2xl font-bold mb-3">AI Predictor</h3>
-            <p class="text-slate-600 leading-relaxed mb-8">72-hour air trend forecasts powered by machine learning.</p>
-            <a href="/forecast" class="w-full py-4 rounded-full bg-teal-500 text-white text-center font-bold mt-auto hover:bg-teal-600 block transition-all">Get Forecast</a>
-        </div>
+      <div class="result-actions">
+        <a id="res-details-btn" href="#" class="btn-primary">
+          <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7z"/><circle cx="12" cy="12" r="3"/></svg>
+          View Full Details
+        </a>
+        <a id="res-report-btn" href="#" class="btn-secondary">
+          <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14,2 14,8 20,8"/></svg>
+          Download PDF
+        </a>
+      </div>
+    </div>
+  </div>
+</section>
 
-    </main>
+<!-- Feature chips -->
+<div class="features">
+  <div class="feature-chip"><div class="feature-chip-icon">🌍</div>Worldwide city coverage</div>
+  <div class="feature-chip"><div class="feature-chip-icon">⚡</div>Real-time WAQI data</div>
+  <div class="feature-chip"><div class="feature-chip-icon">🤖</div>AI health suggestions</div>
+  <div class="feature-chip"><div class="feature-chip-icon">📄</div>PDF report export</div>
+  <div class="feature-chip"><div class="feature-chip-icon">🔮</div>7-day AQI forecast</div>
+</div>
 
+<!-- How it works -->
+<section class="how-section">
+  <div style="text-align:center; margin-bottom:48px;">
+    <div class="section-label">How it works</div>
+    <h2 class="section-title">Three steps to clean air clarity</h2>
+  </div>
+  <div class="how-grid">
+    <div class="how-step">
+      <div class="how-num">1</div>
+      <div class="how-title">Search your city</div>
+      <div class="how-desc">Type any city name and we'll instantly fetch live AQI readings from WAQI's global sensor network.</div>
+    </div>
+    <div class="how-step">
+      <div class="how-num">2</div>
+      <div class="how-title">Get your analysis</div>
+      <div class="how-desc">See pollutant breakdowns, source attribution (traffic, industry, dust), and your personal health risk score.</div>
+    </div>
+    <div class="how-step">
+      <div class="how-num">3</div>
+      <div class="how-title">Act on AI advice</div>
+      <div class="how-desc">Receive tailored recommendations — whether to exercise outside, wear a mask, or keep windows shut.</div>
+    </div>
+  </div>
+</section>
+
+<!-- Cities showcase -->
+<section class="cities-section">
+  <div class="section-label">Live right now</div>
+  <h2 class="section-title">Global air quality snapshot</h2>
+  <p class="section-desc">A real-time glimpse at air conditions across major cities worldwide.</p>
+  <div class="cities-grid" id="cities-grid">
+    <!-- Filled by JS with static data for landing page aesthetic -->
     <script>
-        document.getElementById('searchBtn').addEventListener('click', async () => {
-            const cityInput = document.getElementById('cityInput');
-            const statusMsg = document.getElementById('statusMessage');
-            const city = cityInput.value.trim();
+      const cities = [
+        { name: "Delhi", country: "India", aqi: 156, status: "Unhealthy" },
+        { name: "New York", country: "USA", aqi: 48, status: "Good" },
+        { name: "London", country: "UK", aqi: 62, status: "Moderate" },
+        { name: "Tokyo", country: "Japan", aqi: 38, status: "Good" },
+        { name: "Paris", country: "France", aqi: 75, status: "Moderate" },
+        { name: "Beijing", country: "China", aqi: 178, status: "Unhealthy" },
+      ];
+      function aqiColor(aqi) {
+        if (aqi <= 50) return { color: '#16a34a', bg: '#dcfce7', bar: '#16a34a' };
+        if (aqi <= 100) return { color: '#ca8a04', bg: '#fef9c3', bar: '#eab308' };
+        if (aqi <= 150) return { color: '#ea580c', bg: '#ffedd5', bar: '#ea580c' };
+        return { color: '#dc2626', bg: '#fee2e2', bar: '#dc2626' };
+      }
+      function aqiPct(aqi) { return Math.min((aqi / 200) * 100, 100); }
 
-            if (!city) {
-                alert("Please enter a city name!");
-                return;
-            }
-
-            statusMsg.innerText = "Analyzing Atmosphere...";
-            statusMsg.classList.add("text-teal-600", "animate-pulse");
-
-            try {
-                const response = await fetch('/api/search', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ city: city })
-                });
-
-                const data = await response.json();
-
-                if (response.ok && data.redirect) {
-                    // This is the magic line that takes you to the new Deep Analysis page
-                    window.location.href = data.redirect;
-                } else {
-                    statusMsg.innerText = data.error || "City not found!";
-                    statusMsg.classList.remove("text-teal-600", "animate-pulse");
-                    statusMsg.classList.add("text-red-500");
-                }
-            } catch (error) {
-                console.error("Error:", error);
-                statusMsg.innerText = "Server Error. Try again.";
-                statusMsg.classList.remove("text-teal-600", "animate-pulse");
-            }
-        });
-
-        // Allow "Enter" key to trigger search
-        document.getElementById('cityInput').addEventListener('keypress', function (e) {
-            if (e.key === 'Enter') {
-                document.getElementById('searchBtn').click();
-            }
-        });
+      document.getElementById('cities-grid').innerHTML = cities.map(c => {
+        const col = aqiColor(c.aqi);
+        return `
+        <a href="/details/${c.name}" class="city-card" style="border-top: 3px solid ${col.bar}">
+          <div class="city-card-top">
+            <div>
+              <div class="city-name">${c.name}</div>
+              <div class="city-country">${c.country}</div>
+            </div>
+            <div class="city-aqi-circle" style="color: ${col.color}; border-color: ${col.color}; background: ${col.bg}">
+              ${c.aqi}
+            </div>
+          </div>
+          <div class="city-status-bar" style="background: linear-gradient(to right, ${col.bar}, transparent); width: ${aqiPct(c.aqi)}%"></div>
+          <div class="city-status-text" style="color: ${col.color}">${c.status}</div>
+        </a>`;
+      }).join('');
     </script>
+  </div>
+  <div style="margin-top: 40px;">
+    <a href="/dashboard" class="btn-primary" style="display:inline-flex; text-decoration:none; width:auto; padding: 14px 32px; border-radius: 12px; gap:8px; font-size: 15px;">
+      View Full Dashboard
+      <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M5 12h14m-7-7 7 7-7 7"/></svg>
+    </a>
+  </div>
+</section>
+
+<!-- Footer -->
+<footer>
+  <div class="footer-logo">BreathIQ</div>
+  <div class="footer-links">
+    <a href="/">Home</a>
+    <a href="/dashboard">Dashboard</a>
+    <a href="/forecast">Forecast</a>
+  </div>
+  <div class="footer-copy">© 2025 BreathIQ · Data via WAQI</div>
+</footer>
+
+<script>
+function quickSearch(city) {
+  document.getElementById('city-input').value = city;
+  searchCity();
+}
+
+function searchCity() {
+  const city = document.getElementById('city-input').value.trim();
+  if (!city) return;
+
+  document.getElementById('search-loading').classList.add('show');
+  document.getElementById('error-msg').classList.remove('show');
+  document.getElementById('result-section').style.display = 'none';
+
+  fetch('/api/search', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ city })
+  })
+  .then(r => r.json())
+  .then(data => {
+    document.getElementById('search-loading').classList.remove('show');
+    if (data.error) {
+      document.getElementById('error-msg').textContent = data.error;
+      document.getElementById('error-msg').classList.add('show');
+      return;
+    }
+    showResult(data);
+  })
+  .catch(() => {
+    document.getElementById('search-loading').classList.remove('show');
+    document.getElementById('error-msg').textContent = 'Connection error. Please try again.';
+    document.getElementById('error-msg').classList.add('show');
+  });
+}
+
+function showResult(data) {
+  const aqi = data.aqi;
+  const colors = aqi <= 50 ? { txt: '#16a34a', bg: '#dcfce7' }
+               : aqi <= 100 ? { txt: '#ca8a04', bg: '#fef9c3' }
+               : aqi <= 150 ? { txt: '#ea580c', bg: '#ffedd5' }
+               : { txt: '#dc2626', bg: '#fee2e2' };
+  const pct = Math.min((aqi / 250) * 100, 100);
+
+  document.getElementById('res-city').textContent = data.city;
+  document.getElementById('res-num').textContent = aqi;
+  document.getElementById('res-num').style.color = colors.txt;
+  document.getElementById('res-marker').style.left = pct + '%';
+  document.getElementById('res-marker').style.color = colors.txt;
+  document.getElementById('res-badge').textContent = data.status;
+  document.getElementById('res-badge').style.background = colors.bg;
+  document.getElementById('res-badge').style.color = colors.txt;
+
+  const citySlug = document.getElementById('city-input').value.trim();
+  document.getElementById('res-details-btn').href = '/details/' + citySlug;
+  document.getElementById('res-report-btn').href = '/report/' + citySlug;
+
+  document.getElementById('result-section').style.display = 'block';
+}
+</script>
 </body>
 </html>

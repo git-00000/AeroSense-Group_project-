@@ -1,77 +1,314 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>EcoPredict - Global Dashboard</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Global Dashboard — BreathIQ</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600&family=DM+Serif+Display&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --teal: #0f9e8a; --teal-dark: #0a7a6b; --teal-light: #e0f5f2;
+    --ink: #0d1f1c; --muted: #4a6260; --surface: #f4f9f8;
+    --white: #ffffff; --border: rgba(15,158,138,0.15);
+    --radius: 16px; --font: 'DM Sans', sans-serif; --serif: 'DM Serif Display', serif;
+  }
+
+  body { font-family: var(--font); background: var(--surface); color: var(--ink); min-height: 100vh; }
+
+  nav {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 0 40px; height: 64px;
+    background: rgba(244,249,248,0.95); backdrop-filter: blur(16px);
+    border-bottom: 1px solid var(--border); position: sticky; top: 0; z-index: 100;
+  }
+  .nav-logo { font-family: var(--serif); font-size: 20px; color: var(--ink); text-decoration: none; }
+  .nav-links { display: flex; align-items: center; gap: 4px; }
+  .nav-links a {
+    padding: 8px 16px; border-radius: 8px; font-size: 14px; font-weight: 500;
+    color: var(--muted); text-decoration: none; transition: all 0.2s;
+  }
+  .nav-links a.active, .nav-links a:hover { background: var(--teal-light); color: var(--teal-dark); }
+  .live-indicator {
+    display: flex; align-items: center; gap: 6px;
+    font-size: 13px; color: var(--muted);
+  }
+  .live-dot { width: 8px; height: 8px; border-radius: 50%; background: #16a34a; animation: pulse 2s infinite; }
+  @keyframes pulse { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:0.6;transform:scale(1.3)} }
+
+  /* ── Page header ── */
+  .page-header {
+    padding: 48px 40px 36px;
+    background: linear-gradient(135deg, var(--ink) 0%, #1a3d39 60%, #0a7a6b 100%);
+    position: relative; overflow: hidden;
+  }
+  .page-header::after {
+    content: ''; position: absolute;
+    bottom: -60px; right: -60px;
+    width: 300px; height: 300px; border-radius: 50%;
+    background: rgba(15,158,138,0.12);
+  }
+  .header-inner { max-width: 1100px; margin: 0 auto; position: relative; z-index: 1; }
+  .page-kicker { font-size: 12px; font-weight: 600; letter-spacing: 1.5px; text-transform: uppercase; color: var(--teal); margin-bottom: 8px; }
+  .page-title { font-family: var(--serif); font-size: clamp(32px, 4vw, 52px); color: white; line-height: 1.1; margin-bottom: 12px; }
+  .page-desc { font-size: 16px; color: rgba(255,255,255,0.5); max-width: 480px; line-height: 1.6; }
+
+  /* ── Summary stats ── */
+  .stats-bar {
+    background: white; border-bottom: 1px solid var(--border);
+    padding: 0 40px;
+  }
+  .stats-inner {
+    max-width: 1100px; margin: 0 auto;
+    display: flex; align-items: stretch;
+  }
+  .stat-item {
+    flex: 1; padding: 20px 24px; border-right: 1px solid var(--border);
+    text-align: center;
+  }
+  .stat-item:last-child { border-right: none; }
+  .stat-num { font-family: var(--serif); font-size: 32px; color: var(--ink); line-height: 1; margin-bottom: 4px; }
+  .stat-label { font-size: 12px; color: var(--muted); font-weight: 500; }
+
+  /* ── Main grid ── */
+  .main { max-width: 1100px; margin: 0 auto; padding: 36px 40px 80px; }
+
+  .section-title {
+    font-size: 12px; font-weight: 600; letter-spacing: 0.8px; text-transform: uppercase;
+    color: var(--muted); margin-bottom: 20px; display: flex; align-items: center; gap: 8px;
+  }
+  .section-title::after { content: ''; flex: 1; height: 1px; background: var(--border); }
+
+  .cities-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    gap: 20px;
+    margin-bottom: 40px;
+  }
+
+  .city-card {
+    background: var(--white); border-radius: 20px;
+    border: 1px solid var(--border);
+    overflow: hidden;
+    box-shadow: 0 2px 12px rgba(0,0,0,0.04);
+    transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+    text-decoration: none; color: inherit; display: block;
+  }
+  .city-card:hover { transform: translateY(-6px); box-shadow: 0 16px 48px rgba(0,0,0,0.1); }
+
+  .city-card-header {
+    padding: 20px 24px 16px;
+    display: flex; align-items: flex-start; justify-content: space-between;
+    border-bottom: 1px solid var(--border);
+  }
+  .city-card-name { font-size: 20px; font-weight: 600; color: var(--ink); margin-bottom: 4px; }
+  .city-card-country { font-size: 13px; color: var(--muted); }
+  .city-aqi-block { text-align: right; }
+  .city-aqi-num { font-family: var(--serif); font-size: 40px; line-height: 1; }
+  .city-aqi-label { font-size: 11px; color: var(--muted); letter-spacing: 0.5px; }
+
+  .city-card-body { padding: 16px 24px 20px; }
+  .city-aqi-bar-track {
+    height: 6px; border-radius: 100px; margin-bottom: 12px;
+    background: linear-gradient(to right, #16a34a 0%, #84cc16 20%, #eab308 40%, #ea580c 60%, #dc2626 80%, #7f1d1d 100%);
+    position: relative;
+  }
+  .city-aqi-bar-marker {
+    position: absolute; top: 50%; transform: translate(-50%,-50%);
+    width: 12px; height: 12px; border-radius: 50%;
+    background: white; border: 2px solid currentColor;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.2);
+  }
+  .city-status-row { display: flex; align-items: center; justify-content: space-between; }
+  .city-status-badge {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 5px 12px; border-radius: 100px;
+    font-size: 12px; font-weight: 600;
+  }
+  .city-view-link { font-size: 13px; color: var(--teal); text-decoration: none; font-weight: 500; display: flex; align-items: center; gap: 4px; }
+
+  /* ── AQI Legend ── */
+  .legend-card {
+    background: var(--white); border-radius: 20px; border: 1px solid var(--border);
+    padding: 24px 28px; margin-bottom: 32px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.03);
+  }
+  .legend-grid { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 16px; }
+  .legend-item { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--muted); }
+  .legend-dot { width: 10px; height: 10px; border-radius: 50%; }
+
+  /* ── Quick search in dashboard ── */
+  .dash-search {
+    background: var(--teal-light); border-radius: 16px; padding: 24px 28px;
+    display: flex; align-items: center; gap: 16px; flex-wrap: wrap;
+    border: 1px solid rgba(15,158,138,0.2);
+    margin-bottom: 32px;
+  }
+  .dash-search-text { flex: 1; min-width: 200px; }
+  .dash-search-text h3 { font-size: 16px; font-weight: 600; color: var(--ink); margin-bottom: 4px; }
+  .dash-search-text p { font-size: 13px; color: var(--muted); }
+  .dash-search-form { display: flex; gap: 8px; }
+  .dash-search-input {
+    padding: 10px 16px; border-radius: 10px;
+    border: 1.5px solid rgba(15,158,138,0.25); background: white;
+    font-family: var(--font); font-size: 14px; color: var(--ink); outline: none;
+    transition: all 0.2s; width: 200px;
+  }
+  .dash-search-input:focus { border-color: var(--teal); box-shadow: 0 0 0 3px rgba(15,158,138,0.12); }
+  .dash-search-btn {
+    padding: 10px 20px; border-radius: 10px;
+    background: var(--teal); color: white; border: none;
+    font-family: var(--font); font-size: 14px; font-weight: 500; cursor: pointer;
+    transition: all 0.2s;
+  }
+  .dash-search-btn:hover { background: var(--teal-dark); }
+
+  @media (max-width: 640px) {
+    nav { padding: 0 16px; }
+    .page-header, .stats-bar, .main { padding-left: 16px; padding-right: 16px; }
+    .stats-inner { flex-wrap: wrap; }
+    .stat-item { border-right: none; border-bottom: 1px solid var(--border); }
+    .cities-grid { grid-template-columns: 1fr; }
+  }
+</style>
 </head>
-<body class="bg-slate-50">
+<body>
 
-    <nav class="flex items-center justify-between px-10 py-5 bg-white shadow-sm sticky top-0 z-50">
-        <div class="flex items-center gap-2">
-            <div class="w-8 h-8 bg-teal-500 rounded-lg flex items-center justify-center text-white">
-                <i class="fas fa-leaf"></i>
-            </div>
-            <span class="text-2xl font-bold text-slate-700">EcoPredict</span>
-        </div>
-        <a href="/" class="text-teal-600 font-bold hover:underline">← Back to Search</a>
-    </nav>
+<nav>
+  <a href="/" class="nav-logo">BreathIQ</a>
+  <div class="nav-links">
+    <a href="/">Home</a>
+    <a href="/dashboard" class="active">Dashboard</a>
+    <a href="/forecast">Forecast</a>
+  </div>
+  <div class="live-indicator">
+    <div class="live-dot"></div>
+    Live data
+  </div>
+</nav>
 
-    <div class="max-w-7xl mx-auto px-6 py-10">
-        <h1 class="text-4xl font-extrabold text-slate-800 mb-8">Global Metro Monitor</h1>
+<!-- Header -->
+<div class="page-header">
+  <div class="header-inner">
+    <div class="page-kicker">Global Overview</div>
+    <h1 class="page-title">Air Quality Dashboard</h1>
+    <p class="page-desc">Real-time AQI readings from major cities worldwide, powered by the World Air Quality Index network.</p>
+  </div>
+</div>
 
-        <div class="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-6 gap-4 mb-12">
-            {% for city in cities %}
-            <div class="bg-white p-4 rounded-2xl shadow-sm border-t-4" style="border-color: {{ city.color }}">
-                <p class="text-slate-400 text-[10px] font-black uppercase tracking-widest">{{ city.city }}</p>
-                <h2 class="text-3xl font-black" style="color: {{ city.color }}">{{ city.aqi }}</h2>
-                <p class="text-[10px] font-bold opacity-70">{{ city.status }}</p>
-            </div>
-            {% endfor %}
-        </div>
-
-        <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
-            <div class="lg:col-span-2 bg-white p-8 rounded-3xl shadow-xl border border-slate-100">
-                <h3 class="text-xl font-bold mb-6 text-slate-700">24-Hour Trend Analysis</h3>
-                <canvas id="aqiChart" height="150"></canvas>
-            </div>
-
-            <div class="bg-slate-900 text-white p-8 rounded-3xl shadow-xl flex flex-col">
-                <h3 class="text-xl font-bold mb-4 text-teal-400">AI Insights</h3>
-                <div class="space-y-4 text-sm opacity-90 flex-1">
-                    <p>• <strong>Traffic Effect:</strong> PM2.5 concentrations are higher in Asian hubs this morning.</p>
-                    <p>• <strong>Weather Sync:</strong> High humidity in London is trapping surface-level pollutants.</p>
-                </div>
-                <button class="w-full mt-8 py-3 bg-teal-500 text-white font-bold rounded-xl hover:bg-teal-400 transition-all">Download Report</button>
-            </div>
-        </div>
+<!-- Stats bar -->
+<div class="stats-bar">
+  <div class="stats-inner">
+    {% set good_count = cities | selectattr('aqi', 'le', 50) | list | length %}
+    {% set moderate_count = cities | selectattr('aqi', 'gt', 50) | selectattr('aqi', 'le', 100) | list | length %}
+    {% set unhealthy_count = cities | selectattr('aqi', 'gt', 100) | list | length %}
+    <div class="stat-item">
+      <div class="stat-num">{{ cities | length }}</div>
+      <div class="stat-label">Cities Monitored</div>
     </div>
+    <div class="stat-item">
+      <div class="stat-num" style="color: #16a34a">{{ good_count }}</div>
+      <div class="stat-label">Good Air Quality</div>
+    </div>
+    <div class="stat-item">
+      <div class="stat-num" style="color: #ca8a04">{{ moderate_count }}</div>
+      <div class="stat-label">Moderate</div>
+    </div>
+    <div class="stat-item">
+      <div class="stat-num" style="color: #dc2626">{{ unhealthy_count }}</div>
+      <div class="stat-label">Needs Attention</div>
+    </div>
+    <div class="stat-item">
+      <div class="stat-num" style="color: var(--teal)">{{ (cities | sum(attribute='aqi') / cities | length) | round | int }}</div>
+      <div class="stat-label">Average AQI</div>
+    </div>
+  </div>
+</div>
 
-    <script>
-        const ctx = document.getElementById('aqiChart').getContext('2d');
-        new Chart(ctx, {
-            type: 'line',
-            data: {
-                labels: ['12am', '4am', '8am', '12pm', '4pm', '8pm', 'Now'],
-                datasets: [{
-                    label: 'Avg Global AQI',
-                    data: [40, 35, 80, 65, 60, 85, 55],
-                    borderColor: '#14b8a6',
-                    backgroundColor: 'rgba(20, 184, 166, 0.1)',
-                    fill: true,
-                    tension: 0.4,
-                    borderWidth: 3
-                }]
-            },
-            options: {
-                responsive: true,
-                plugins: { legend: { display: false } },
-                scales: { y: { beginAtZero: true } }
-            }
-        });
-    </script>
+<div class="main">
+
+  <!-- Quick search -->
+  <div class="dash-search">
+    <div class="dash-search-text">
+      <h3>Check any city</h3>
+      <p>Not on the list? Search for any city worldwide.</p>
+    </div>
+    <div class="dash-search-form">
+      <input class="dash-search-input" type="text" id="dash-city" placeholder="City name…" onkeydown="if(event.key==='Enter') goToCity()">
+      <button class="dash-search-btn" onclick="goToCity()">Search</button>
+    </div>
+  </div>
+
+  <!-- Legend -->
+  <div class="legend-card">
+    <div class="section-title">AQI Scale Reference</div>
+    <div class="legend-grid">
+      <div class="legend-item"><div class="legend-dot" style="background:#16a34a"></div>0–50: Good — No health risk</div>
+      <div class="legend-item"><div class="legend-dot" style="background:#eab308"></div>51–100: Moderate — Acceptable</div>
+      <div class="legend-item"><div class="legend-dot" style="background:#ea580c"></div>101–150: Unhealthy for Sensitive Groups</div>
+      <div class="legend-item"><div class="legend-dot" style="background:#dc2626"></div>151–200: Unhealthy — Everyone at risk</div>
+      <div class="legend-item"><div class="legend-dot" style="background:#7f1d1d"></div>200+: Very Unhealthy / Hazardous</div>
+    </div>
+  </div>
+
+  <!-- Cities -->
+  <div class="section-title">Featured Cities</div>
+
+  <div class="cities-grid">
+    {% for city in cities %}
+    {% if city.aqi is defined %}
+    {% set aqi = city.aqi %}
+    {% if aqi <= 50 %}
+      {% set col = '#16a34a' %} {% set bg = '#dcfce7' %}
+    {% elif aqi <= 100 %}
+      {% set col = '#ca8a04' %} {% set bg = '#fef9c3' %}
+    {% elif aqi <= 150 %}
+      {% set col = '#ea580c' %} {% set bg = '#ffedd5' %}
+    {% else %}
+      {% set col = '#dc2626' %} {% set bg = '#fee2e2' %}
+    {% endif %}
+    {% set pct = [aqi / 2.5, 100] | min %}
+
+    <a href="/details/{{ city.city }}" class="city-card" style="border-top: 3px solid {{ col }}">
+      <div class="city-card-header">
+        <div>
+          <div class="city-card-name">{{ city.city }}</div>
+          <div class="city-card-country">{{ city.status }}</div>
+        </div>
+        <div class="city-aqi-block">
+          <div class="city-aqi-num" style="color: {{ col }}">{{ aqi }}</div>
+          <div class="city-aqi-label">AQI</div>
+        </div>
+      </div>
+      <div class="city-card-body">
+        <div class="city-aqi-bar-track">
+          <div class="city-aqi-bar-marker" style="left: {{ pct }}%; color: {{ col }}"></div>
+        </div>
+        <div class="city-status-row">
+          <div class="city-status-badge" style="background: {{ bg }}; color: {{ col }}">
+            <div style="width:6px;height:6px;border-radius:50%;background:{{ col }}"></div>
+            {{ city.status }}
+          </div>
+          <span class="city-view-link">
+            Full details
+            <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M5 12h14m-7-7 7 7-7 7"/></svg>
+          </span>
+        </div>
+      </div>
+    </a>
+    {% endif %}
+    {% endfor %}
+  </div>
+
+</div>
+
+<script>
+function goToCity() {
+  const city = document.getElementById('dash-city').value.trim();
+  if (city) window.location.href = '/details/' + encodeURIComponent(city);
+}
+</script>
 </body>
 </html>

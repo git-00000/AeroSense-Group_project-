@@ -1,101 +1,434 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <title>EcoPredict - Deep Analysis</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>{{ d.name }} — BreathIQ</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;1,9..40,300&family=DM+Serif+Display:ital@0;1&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --teal: #0f9e8a; --teal-dark: #0a7a6b; --teal-light: #e0f5f2;
+    --ink: #0d1f1c; --muted: #4a6260; --surface: #f4f9f8;
+    --white: #ffffff; --border: rgba(15,158,138,0.15);
+    --radius: 16px; --font: 'DM Sans', sans-serif; --serif: 'DM Serif Display', serif;
+  }
+
+  body { font-family: var(--font); background: var(--surface); color: var(--ink); min-height: 100vh; }
+
+  nav {
+    position: sticky; top: 0; z-index: 100;
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 0 40px; height: 64px;
+    background: rgba(244,249,248,0.92); backdrop-filter: blur(16px);
+    border-bottom: 1px solid var(--border);
+  }
+  .nav-logo { font-family: var(--serif); font-size: 20px; color: var(--ink); text-decoration: none; }
+  .nav-links { display: flex; align-items: center; gap: 4px; }
+  .nav-links a {
+    padding: 8px 16px; border-radius: 8px; font-size: 14px; font-weight: 500;
+    color: var(--muted); text-decoration: none; transition: all 0.2s;
+  }
+  .nav-links a:hover { background: var(--teal-light); color: var(--teal-dark); }
+  .back-btn {
+    display: flex; align-items: center; gap: 6px;
+    padding: 8px 16px; border-radius: 8px;
+    font-size: 14px; font-weight: 500; color: var(--muted); text-decoration: none;
+    background: var(--teal-light); transition: all 0.2s;
+  }
+  .back-btn:hover { background: #c5eeea; color: var(--teal-dark); }
+
+  /* ── Hero header ── */
+  .page-hero {
+    background: linear-gradient(135deg, var(--ink) 0%, #1a3d39 100%);
+    padding: 52px 40px 56px; position: relative; overflow: hidden;
+  }
+  .page-hero::before {
+    content: ''; position: absolute; inset: 0;
+    background: url("data:image/svg+xml,%3Csvg width='60' height='60' xmlns='http://www.w3.org/2000/svg'%3E%3Ccircle cx='30' cy='30' r='1' fill='rgba(255,255,255,0.04)'/%3E%3C/svg%3E");
+  }
+  .hero-inner { max-width: 1100px; margin: 0 auto; position: relative; z-index: 1; }
+  .hero-breadcrumb { font-size: 13px; color: rgba(255,255,255,0.5); margin-bottom: 16px; }
+  .hero-breadcrumb a { color: rgba(255,255,255,0.5); text-decoration: none; }
+  .hero-breadcrumb a:hover { color: var(--teal); }
+  .hero-row { display: flex; align-items: flex-start; justify-content: space-between; flex-wrap: wrap; gap: 32px; }
+  .hero-city { font-family: var(--serif); font-size: clamp(36px, 5vw, 60px); color: white; line-height: 1; margin-bottom: 12px; }
+  .hero-query { font-size: 14px; color: rgba(255,255,255,0.45); }
+  .hero-aqi-block { text-align: right; }
+  .hero-aqi-num {
+    font-family: var(--serif); font-size: 96px; line-height: 1; font-weight: 400;
+    color: {{ d.color }};
+    text-shadow: 0 0 60px {{ d.color }}60;
+  }
+  .hero-aqi-label { font-size: 14px; color: rgba(255,255,255,0.5); letter-spacing: 1px; }
+  .hero-status-badge {
+    display: inline-flex; align-items: center; gap: 8px;
+    padding: 10px 20px; border-radius: 100px;
+    font-size: 14px; font-weight: 500; margin-top: 20px;
+    border: 1px solid rgba(255,255,255,0.15); color: white;
+    background: rgba(255,255,255,0.08); backdrop-filter: blur(8px);
+  }
+  .hero-status-dot { width: 8px; height: 8px; border-radius: 50%; background: {{ d.color }}; animation: pulse 2s infinite; }
+  @keyframes pulse { 0%,100%{transform:scale(1); opacity:1} 50%{transform:scale(1.4); opacity:0.7} }
+
+  /* ── AQI scale bar ── */
+  .scale-section {
+    background: rgba(255,255,255,0.06); border-top: 1px solid rgba(255,255,255,0.08);
+    padding: 20px 40px;
+  }
+  .scale-inner { max-width: 1100px; margin: 0 auto; }
+  .scale-label { font-size: 12px; color: rgba(255,255,255,0.4); margin-bottom: 8px; letter-spacing: 0.5px; }
+  .scale-track {
+    height: 8px; border-radius: 100px; position: relative;
+    background: linear-gradient(to right, #16a34a 0%, #84cc16 20%, #eab308 40%, #ea580c 60%, #dc2626 80%, #7f1d1d 100%);
+  }
+  .scale-marker {
+    position: absolute; top: 50%; transform: translate(-50%, -50%);
+    width: 16px; height: 16px; border-radius: 50%;
+    background: white; border: 3px solid {{ d.color }};
+    box-shadow: 0 0 0 4px {{ d.color }}50;
+    left: {{ [d.aqi / 3, 100]|min }}%;
+  }
+  .scale-ticks { display: flex; justify-content: space-between; margin-top: 6px; }
+  .scale-ticks span { font-size: 11px; color: rgba(255,255,255,0.3); }
+
+  /* ── Main content ── */
+  .main { max-width: 1100px; margin: 0 auto; padding: 40px 40px 80px; }
+  .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 20px; }
+  .grid-4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 20px; }
+
+  .card {
+    background: var(--white); border-radius: 20px;
+    border: 1px solid var(--border);
+    padding: 28px;
+    box-shadow: 0 2px 12px rgba(0,0,0,0.04);
+  }
+  .card-title {
+    font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.8px;
+    color: var(--muted); margin-bottom: 20px;
+    display: flex; align-items: center; gap: 8px;
+  }
+  .card-title-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--teal); }
+
+  /* Safety card */
+  .safety-card { grid-column: span 2; }
+  .safety-text { font-size: 22px; font-weight: 400; color: var(--ink); line-height: 1.4; font-family: var(--serif); }
+  .safety-sub { font-size: 14px; color: var(--muted); margin-top: 12px; line-height: 1.6; }
+
+  /* Pollutant cards */
+  .pollutant-card {}
+  .pollutant-value { font-family: var(--serif); font-size: 36px; color: var(--ink); margin-bottom: 4px; }
+  .pollutant-unit { font-size: 13px; color: var(--muted); }
+  .pollutant-name { font-size: 14px; font-weight: 500; color: var(--ink); margin-bottom: 4px; }
+  .pollutant-bar-track { height: 4px; background: #eef2f1; border-radius: 100px; margin-top: 12px; overflow: hidden; }
+  .pollutant-bar-fill { height: 100%; border-radius: 100px; transition: width 1s ease; }
+  .limit-ok { color: #16a34a; }
+  .limit-over { color: #dc2626; }
+  .limit-badge {
+    display: inline-flex; align-items: center; gap: 4px;
+    padding: 4px 10px; border-radius: 100px;
+    font-size: 11px; font-weight: 600; margin-top: 8px;
+    letter-spacing: 0.3px;
+  }
+
+  /* Gas table */
+  .gas-table { width: 100%; border-collapse: collapse; }
+  .gas-table th {
+    font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px;
+    color: var(--muted); text-align: left; padding: 0 0 12px;
+    border-bottom: 1px solid var(--border);
+  }
+  .gas-table td { padding: 14px 0; border-bottom: 1px solid rgba(15,158,138,0.07); font-size: 14px; }
+  .gas-table tr:last-child td { border-bottom: none; }
+  .gas-name { font-weight: 500; color: var(--ink); }
+  .gas-measured { font-family: var(--serif); font-size: 18px; color: var(--ink); }
+  .gas-limit { font-size: 13px; color: var(--muted); }
+
+  /* Source donut */
+  .source-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; align-items: center; }
+  .source-donut-wrap { position: relative; display: flex; align-items: center; justify-content: center; }
+  .source-center { position: absolute; text-align: center; pointer-events: none; }
+  .source-center-num { font-family: var(--serif); font-size: 32px; color: var(--ink); }
+  .source-center-label { font-size: 11px; color: var(--muted); }
+  .source-legend { display: flex; flex-direction: column; gap: 12px; }
+  .source-item { display: flex; align-items: center; gap: 10px; }
+  .source-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+  .source-label { font-size: 14px; color: var(--muted); flex: 1; }
+  .source-pct { font-size: 14px; font-weight: 600; color: var(--ink); }
+
+  /* AI suggestion */
+  .ai-card {
+    background: linear-gradient(135deg, #0a7a6b, #0f9e8a);
+    border: none; color: white;
+  }
+  .ai-card .card-title { color: rgba(255,255,255,0.6); }
+  .ai-card .card-title-dot { background: rgba(255,255,255,0.5); }
+  .ai-text { font-size: 18px; font-family: var(--serif); line-height: 1.5; font-style: italic; }
+  .ai-badge {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 6px 12px; border-radius: 100px;
+    background: rgba(255,255,255,0.15); font-size: 12px; margin-top: 16px;
+  }
+
+  /* PM cards */
+  .pm-card { text-align: center; }
+  .pm-value { font-family: var(--serif); font-size: 40px; color: var(--ink); margin-bottom: 4px; }
+  .pm-label { font-size: 13px; color: var(--muted); }
+
+  /* Actions */
+  .actions-row { display: flex; gap: 12px; flex-wrap: wrap; margin-top: 32px; }
+  .btn {
+    display: inline-flex; align-items: center; gap: 8px;
+    padding: 14px 24px; border-radius: 12px;
+    font-family: var(--font); font-size: 15px; font-weight: 500;
+    text-decoration: none; border: none; cursor: pointer; transition: all 0.2s;
+  }
+  .btn-filled { background: linear-gradient(135deg, var(--teal), var(--teal-dark)); color: white; }
+  .btn-filled:hover { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(15,158,138,0.35); }
+  .btn-outline { background: var(--white); border: 1.5px solid var(--border); color: var(--ink); }
+  .btn-outline:hover { background: var(--teal-light); border-color: var(--teal); }
+
+  @media (max-width: 768px) {
+    nav { padding: 0 20px; }
+    .page-hero, .scale-section { padding-left: 20px; padding-right: 20px; }
+    .main { padding: 24px 20px 60px; }
+    .grid-2 { grid-template-columns: 1fr; }
+    .grid-4 { grid-template-columns: 1fr 1fr; }
+    .safety-card { grid-column: span 1; }
+    .hero-aqi-num { font-size: 64px; }
+  }
+</style>
 </head>
-<body class="bg-slate-50 text-slate-900">
+<body>
 
-    <nav class="p-6 bg-white shadow-sm flex justify-between items-center">
-        <h1 class="text-xl font-bold text-teal-600">EcoPredict <span class="text-slate-400">Deep Analytics</span></h1>
-        <div class="flex items-center gap-4">
-            <a href="/report/{{ d.query }}"
-               class="flex items-center gap-2 px-5 py-2.5 bg-teal-600 hover:bg-teal-700
-                      text-white text-sm font-bold rounded-xl shadow transition-all">
-                <i class="fas fa-file-pdf"></i> Download Report
-            </a>
-            <a href="/" class="text-sm font-bold text-slate-500 hover:text-slate-800">← New Search</a>
+<nav>
+  <a href="/" class="nav-logo">BreathIQ</a>
+  <div class="nav-links">
+    <a href="/dashboard">Dashboard</a>
+    <a href="/forecast">Forecast</a>
+  </div>
+  <a href="/" class="back-btn">
+    <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M19 12H5m7-7-7 7 7 7"/></svg>
+    New search
+  </a>
+</nav>
+
+<!-- Hero -->
+<div class="page-hero">
+  <div class="hero-inner">
+    <div class="hero-breadcrumb">
+      <a href="/">Home</a> / <a href="/dashboard">Dashboard</a> / {{ d.name }}
+    </div>
+    <div class="hero-row">
+      <div>
+        <h1 class="hero-city">{{ d.name }}</h1>
+        <div class="hero-query" style="color: rgba(255,255,255,0.45)">Query: {{ d.query }}</div>
+        <div class="hero-status-badge">
+          <div class="hero-status-dot"></div>
+          {{ d.status }}
         </div>
-    </nav>
+      </div>
+      <div class="hero-aqi-block">
+        <div class="hero-aqi-num">{{ d.aqi }}</div>
+        <div class="hero-aqi-label">AIR QUALITY INDEX</div>
+      </div>
+    </div>
+  </div>
 
-    <main class="max-w-4xl mx-auto py-12 px-6">
-        <div class="mb-10">
-            <h2 class="text-sm uppercase tracking-widest font-black text-slate-400 mb-2">Location</h2>
-            <h1 class="text-5xl font-black">{{ d.name }}</h1>
+  <div class="scale-section" style="margin-top: 28px;">
+    <div class="scale-inner">
+      <div class="scale-label">AQI SCALE</div>
+      <div class="scale-track">
+        <div class="scale-marker"></div>
+      </div>
+      <div class="scale-ticks">
+        <span>0 — Good</span>
+        <span>50</span>
+        <span>100 — Moderate</span>
+        <span>150</span>
+        <span>200 — Unhealthy</span>
+        <span>300+</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Main content -->
+<div class="main">
+
+  <!-- Safety & AI row -->
+  <div class="grid-2">
+    <div class="card safety-card">
+      <div class="card-title"><div class="card-title-dot"></div>Health Advisory</div>
+      <div class="safety-text">{{ d.safety }}</div>
+      <div class="safety-sub">Take protective steps based on the current air quality conditions in {{ d.name }}.</div>
+    </div>
+    <div class="card ai-card">
+      <div class="card-title"><div class="card-title-dot"></div>AI Recommendation</div>
+      <div class="ai-text">"{{ d.suggestion }}"</div>
+      <div class="ai-badge">
+        <svg width="12" height="12" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>
+        BreathIQ AI
+      </div>
+    </div>
+  </div>
+
+  <!-- Pollutant grid -->
+  <div class="grid-4" style="margin-bottom:20px;">
+    {% set pollutants = [
+      ('NO₂', d.no2, 'ug/m³', 'Nitrogen Dioxide', 40),
+      ('CO', d.co, 'mg/m³', 'Carbon Monoxide', 10),
+      ('O₃', d.o3, 'ug/m³', 'Ozone', 100),
+      ('SO₂', d.so2, 'ug/m³', 'Sulphur Dioxide', 20),
+    ] %}
+    {% for sym, val, unit, full, limit in pollutants %}
+    {% set ok = val | float <= limit %}
+    <div class="card pollutant-card">
+      <div class="card-title"><div class="card-title-dot" style="background:{% if ok %}#16a34a{% else %}#dc2626{% endif %}"></div>{{ sym }}</div>
+      <div class="pollutant-value">{{ val }}</div>
+      <div class="pollutant-unit">{{ unit }}</div>
+      <div class="pollutant-bar-track">
+        <div class="pollutant-bar-fill" style="width: {{ [(val | float / limit * 100), 100] | min }}%; background: {% if ok %}#16a34a{% else %}#dc2626{% endif %}"></div>
+      </div>
+      <div class="limit-badge" style="background: {% if ok %}#dcfce7{% else %}#fee2e2{% endif %}; color: {% if ok %}#16a34a{% else %}#dc2626{% endif %}">
+        {% if ok %}✓ Within limit{% else %}⚠ Exceeds limit{% endif %}
+      </div>
+      <div style="font-size:12px; color: var(--muted); margin-top: 6px;">Safe limit: {{ limit }} {{ unit }}</div>
+    </div>
+    {% endfor %}
+  </div>
+
+  <!-- PM values & source breakdown -->
+  <div class="grid-2" style="margin-bottom: 20px;">
+    <div class="card">
+      <div class="card-title"><div class="card-title-dot"></div>Particulate Matter</div>
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+        <div class="pm-card">
+          <div class="pm-value">{{ d.pm25 }}</div>
+          <div class="pm-label">PM2.5 (ug/m³)</div>
+          <div style="font-size: 12px; color: var(--muted); margin-top: 4px;">Fine particles</div>
         </div>
-
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-8 mb-12">
-            <div class="bg-white p-8 rounded-[2.5rem] shadow-xl border border-slate-100">
-                <p class="text-slate-500 font-bold mb-4">Overall AQI</p>
-                <h2 class="text-8xl font-black text-teal-500">{{ d.aqi }}</h2>
-                <div class="mt-6 p-4 rounded-2xl bg-teal-50 text-teal-700 font-bold text-sm">
-                    <i class="fas fa-info-circle mr-2"></i> {{ d.safety }}
-                </div>
-            </div>
-
-            <div class="bg-slate-900 text-white p-8 rounded-[2.5rem] shadow-xl">
-                <h3 class="font-bold text-teal-400 mb-2">Pollution Source Breakdown</h3>
-                <p class="text-slate-500 text-xs mb-6">Derived from NO2 (traffic), SO2 (industry) and PM10 (dust) sub-indices via WAQI.</p>
-                <div class="space-y-6">
-                    <div>
-                        <div class="flex justify-between text-xs mb-2"><span>Traffic &amp; Transport</span><span>{{ d.traffic }}%</span></div>
-                        <div class="w-full bg-white/10 h-2 rounded-full"><div class="bg-teal-400 h-full rounded-full" style="width: {{ d.traffic }}%"></div></div>
-                    </div>
-                    <div>
-                        <div class="flex justify-between text-xs mb-2"><span>Industrial Emissions</span><span>{{ d.industry }}%</span></div>
-                        <div class="w-full bg-white/10 h-2 rounded-full"><div class="bg-orange-400 h-full rounded-full" style="width: {{ d.industry }}%"></div></div>
-                    </div>
-                    <div>
-                        <div class="flex justify-between text-xs mb-2"><span>Natural Dust / Other</span><span>{{ d.dust }}%</span></div>
-                        <div class="w-full bg-white/10 h-2 rounded-full"><div class="bg-slate-400 h-full rounded-full" style="width: {{ d.dust }}%"></div></div>
-                    </div>
-                </div>
-            </div>
+        <div class="pm-card">
+          <div class="pm-value">{{ d.pm10 }}</div>
+          <div class="pm-label">PM10 (ug/m³)</div>
+          <div style="font-size: 12px; color: var(--muted); margin-top: 4px;">Coarse particles</div>
         </div>
+      </div>
 
-        <h3 class="text-xl font-bold mb-6">Gas Concentration (μg/m³)</h3>
-        <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-12">
-            <div class="bg-white p-6 rounded-3xl border border-slate-200">
-                <p class="text-xs font-bold text-slate-400 mb-1">NO₂</p>
-                <p class="text-2xl font-black">{{ d.no2 }}</p>
-            </div>
-            <div class="bg-white p-6 rounded-3xl border border-slate-200">
-                <p class="text-xs font-bold text-slate-400 mb-1">CO</p>
-                <p class="text-2xl font-black">{{ d.co }}</p>
-            </div>
-            <div class="bg-white p-6 rounded-3xl border border-slate-200">
-                <p class="text-xs font-bold text-slate-400 mb-1">O₃</p>
-                <p class="text-2xl font-black">{{ d.o3 }}</p>
-            </div>
-            <div class="bg-white p-6 rounded-3xl border border-slate-200">
-                <p class="text-xs font-bold text-slate-400 mb-1">SO₂</p>
-                <p class="text-2xl font-black">{{ d.so2 }}</p>
-            </div>
+      <!-- Full gas table -->
+      <div style="margin-top: 24px;">
+        <table class="gas-table">
+          <thead>
+            <tr>
+              <th>Pollutant</th>
+              <th>Measured</th>
+              <th>Safe Limit</th>
+              <th>Status</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><div class="gas-name">NO₂</div><div style="font-size:12px;color:var(--muted)">Nitrogen Dioxide</div></td>
+              <td class="gas-measured">{{ d.no2 }} <span style="font-family:var(--font);font-size:12px;color:var(--muted)">ug/m³</span></td>
+              <td class="gas-limit">40 ug/m³</td>
+              <td><span style="font-size:12px;font-weight:600;color:{% if d.no2 | float <= 40 %}#16a34a{% else %}#dc2626{% endif %}">{% if d.no2 | float <= 40 %}OK{% else %}HIGH{% endif %}</span></td>
+            </tr>
+            <tr>
+              <td><div class="gas-name">CO</div><div style="font-size:12px;color:var(--muted)">Carbon Monoxide</div></td>
+              <td class="gas-measured">{{ d.co }} <span style="font-family:var(--font);font-size:12px;color:var(--muted)">mg/m³</span></td>
+              <td class="gas-limit">10 mg/m³</td>
+              <td><span style="font-size:12px;font-weight:600;color:{% if d.co | float <= 10 %}#16a34a{% else %}#dc2626{% endif %}">{% if d.co | float <= 10 %}OK{% else %}HIGH{% endif %}</span></td>
+            </tr>
+            <tr>
+              <td><div class="gas-name">O₃</div><div style="font-size:12px;color:var(--muted)">Ozone</div></td>
+              <td class="gas-measured">{{ d.o3 }} <span style="font-family:var(--font);font-size:12px;color:var(--muted)">ug/m³</span></td>
+              <td class="gas-limit">100 ug/m³</td>
+              <td><span style="font-size:12px;font-weight:600;color:{% if d.o3 | float <= 100 %}#16a34a{% else %}#dc2626{% endif %}">{% if d.o3 | float <= 100 %}OK{% else %}HIGH{% endif %}</span></td>
+            </tr>
+            <tr>
+              <td><div class="gas-name">SO₂</div><div style="font-size:12px;color:var(--muted)">Sulphur Dioxide</div></td>
+              <td class="gas-measured">{{ d.so2 }} <span style="font-family:var(--font);font-size:12px;color:var(--muted)">ug/m³</span></td>
+              <td class="gas-limit">20 ug/m³</td>
+              <td><span style="font-size:12px;font-weight:600;color:{% if d.so2 | float <= 20 %}#16a34a{% else %}#dc2626{% endif %}">{% if d.so2 | float <= 20 %}OK{% else %}HIGH{% endif %}</span></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Source breakdown -->
+    <div class="card">
+      <div class="card-title"><div class="card-title-dot"></div>Pollution Source Breakdown</div>
+      <div class="source-grid">
+        <div class="source-donut-wrap">
+          <svg width="180" height="180" viewBox="0 0 180 180">
+            <circle cx="90" cy="90" r="70" fill="none" stroke="#eef2f1" stroke-width="20"/>
+            {% set traffic_dash = (d.traffic / 100 * 439.82) | round(1) %}
+            {% set industry_dash = (d.industry / 100 * 439.82) | round(1) %}
+            {% set dust_dash = (d.dust / 100 * 439.82) | round(1) %}
+            <circle cx="90" cy="90" r="70" fill="none" stroke="#0f9e8a" stroke-width="20"
+              stroke-dasharray="{{ traffic_dash }} {{ 439.82 - traffic_dash }}"
+              stroke-dashoffset="109.96" stroke-linecap="butt"/>
+            <circle cx="90" cy="90" r="70" fill="none" stroke="#f97316" stroke-width="20"
+              stroke-dasharray="{{ industry_dash }} {{ 439.82 - industry_dash }}"
+              stroke-dashoffset="{{ 109.96 - traffic_dash }}" stroke-linecap="butt"/>
+            <circle cx="90" cy="90" r="70" fill="none" stroke="#94a3b8" stroke-width="20"
+              stroke-dasharray="{{ dust_dash }} {{ 439.82 - dust_dash }}"
+              stroke-dashoffset="{{ 109.96 - traffic_dash - industry_dash }}" stroke-linecap="butt"/>
+          </svg>
+          <div class="source-center">
+            <div class="source-center-num">{{ d.aqi }}</div>
+            <div class="source-center-label">AQI</div>
+          </div>
         </div>
+        <div class="source-legend">
+          <div class="source-item">
+            <div class="source-dot" style="background:#0f9e8a"></div>
+            <div class="source-label">Traffic & Transport</div>
+            <div class="source-pct">{{ d.traffic }}%</div>
+          </div>
+          <div style="height: 4px; background: linear-gradient(to right, #0f9e8a, transparent); border-radius: 2px; width: {{ d.traffic }}%; margin-left: 20px;"></div>
 
-        <div class="bg-teal-600 p-8 rounded-[2.5rem] text-white flex gap-6 items-center mb-8">
-            <div class="text-4xl"><i class="fas fa-wind"></i></div>
-            <div>
-                <h4 class="font-bold text-lg mb-1">EcoPredict AI Suggestion</h4>
-                <p class="opacity-90">{{ d.suggestion }}</p>
-            </div>
+          <div class="source-item">
+            <div class="source-dot" style="background:#f97316"></div>
+            <div class="source-label">Industrial Emissions</div>
+            <div class="source-pct">{{ d.industry }}%</div>
+          </div>
+          <div style="height: 4px; background: linear-gradient(to right, #f97316, transparent); border-radius: 2px; width: {{ d.industry }}%; margin-left: 20px;"></div>
+
+          <div class="source-item">
+            <div class="source-dot" style="background:#94a3b8"></div>
+            <div class="source-label">Natural Dust / Other</div>
+            <div class="source-pct">{{ d.dust }}%</div>
+          </div>
+          <div style="height: 4px; background: linear-gradient(to right, #94a3b8, transparent); border-radius: 2px; width: {{ d.dust }}%; margin-left: 20px;"></div>
         </div>
+      </div>
+    </div>
+  </div>
 
-        <!-- Bottom download banner -->
-        <div class="bg-slate-900 p-6 rounded-2xl flex items-center justify-between gap-6">
-            <div>
-                <p class="text-white font-bold text-sm">Save this analysis</p>
-                <p class="text-slate-400 text-xs mt-1">Download a full PDF report including gas readings, source breakdown and AI recommendations.</p>
-            </div>
-            <a href="/report/{{ d.query }}"
-               class="flex-shrink-0 flex items-center gap-2 px-6 py-3 bg-teal-500
-                      hover:bg-teal-400 text-white font-bold rounded-xl transition-all text-sm">
-                <i class="fas fa-download"></i> Download PDF
-            </a>
-        </div>
-    </main>
+  <!-- Actions -->
+  <div class="actions-row">
+    <a href="/report/{{ d.query }}" class="btn btn-filled">
+      <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14,2 14,8 20,8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+      Download PDF Report
+    </a>
+    <a href="/dashboard" class="btn btn-outline">
+      <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
+      Global Dashboard
+    </a>
+    <a href="/forecast" class="btn btn-outline">
+      <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="22,12 18,12 15,21 9,3 6,12 2,12"/></svg>
+      View Forecast
+    </a>
+    <a href="/" class="btn btn-outline">
+      <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+      Search Another City
+    </a>
+  </div>
 
+</div>
 </body>
 </html>
