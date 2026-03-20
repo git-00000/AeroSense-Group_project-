@@ -89,7 +89,7 @@
     width: 16px; height: 16px; border-radius: 50%;
     background: white; border: 3px solid {{ d.color }};
     box-shadow: 0 0 0 4px {{ d.color }}50;
-    left: {{ [d.aqi / 3, 100]|min }}%;
+    left: {{ [[d.aqi / 3, 100] | min, 0] | max }}%;
   }
   .scale-ticks { display: flex; justify-content: space-between; margin-top: 6px; }
   .scale-ticks span { font-size: 11px; color: rgba(255,255,255,0.3); }
@@ -277,27 +277,59 @@
 
   <!-- Pollutant grid -->
   <div class="grid-4" style="margin-bottom:20px;">
-    {% set pollutants = [
-      ('NO₂', d.no2, 'ug/m³', 'Nitrogen Dioxide', 40),
-      ('CO', d.co, 'mg/m³', 'Carbon Monoxide', 10),
-      ('O₃', d.o3, 'ug/m³', 'Ozone', 100),
-      ('SO₂', d.so2, 'ug/m³', 'Sulphur Dioxide', 20),
-    ] %}
-    {% for sym, val, unit, full, limit in pollutants %}
-    {% set ok = val | float <= limit %}
+
+    {% set ok_no2 = d.no2 | float <= 40 %}
     <div class="card pollutant-card">
-      <div class="card-title"><div class="card-title-dot" style="background:{% if ok %}#16a34a{% else %}#dc2626{% endif %}"></div>{{ sym }}</div>
-      <div class="pollutant-value">{{ val }}</div>
-      <div class="pollutant-unit">{{ unit }}</div>
+      <div class="card-title"><div class="card-title-dot" style="background:{% if ok_no2 %}#16a34a{% else %}#dc2626{% endif %}"></div>NO₂</div>
+      <div class="pollutant-value">{{ d.no2 }}</div>
+      <div class="pollutant-unit">ug/m³</div>
       <div class="pollutant-bar-track">
-        <div class="pollutant-bar-fill" style="width: {{ [(val | float / limit * 100), 100] | min }}%; background: {% if ok %}#16a34a{% else %}#dc2626{% endif %}"></div>
+        {% set bw = d.no2 | float / 40 * 100 %}
+        <div class="pollutant-bar-fill" style="width: {{ bw if bw < 100 else 100 }}%; background: {% if ok_no2 %}#16a34a{% else %}#dc2626{% endif %}"></div>
       </div>
-      <div class="limit-badge" style="background: {% if ok %}#dcfce7{% else %}#fee2e2{% endif %}; color: {% if ok %}#16a34a{% else %}#dc2626{% endif %}">
-        {% if ok %}✓ Within limit{% else %}⚠ Exceeds limit{% endif %}
-      </div>
-      <div style="font-size:12px; color: var(--muted); margin-top: 6px;">Safe limit: {{ limit }} {{ unit }}</div>
+      <div class="limit-badge" style="background:{% if ok_no2 %}#dcfce7{% else %}#fee2e2{% endif %};color:{% if ok_no2 %}#16a34a{% else %}#dc2626{% endif %}">{% if ok_no2 %}✓ Within limit{% else %}⚠ Exceeds limit{% endif %}</div>
+      <div style="font-size:12px;color:var(--muted);margin-top:6px;">Safe limit: 40 ug/m³</div>
     </div>
-    {% endfor %}
+
+    {% set ok_co = d.co | float <= 10 %}
+    <div class="card pollutant-card">
+      <div class="card-title"><div class="card-title-dot" style="background:{% if ok_co %}#16a34a{% else %}#dc2626{% endif %}"></div>CO</div>
+      <div class="pollutant-value">{{ d.co }}</div>
+      <div class="pollutant-unit">mg/m³</div>
+      <div class="pollutant-bar-track">
+        {% set bw = d.co | float / 10 * 100 %}
+        <div class="pollutant-bar-fill" style="width: {{ bw if bw < 100 else 100 }}%; background: {% if ok_co %}#16a34a{% else %}#dc2626{% endif %}"></div>
+      </div>
+      <div class="limit-badge" style="background:{% if ok_co %}#dcfce7{% else %}#fee2e2{% endif %};color:{% if ok_co %}#16a34a{% else %}#dc2626{% endif %}">{% if ok_co %}✓ Within limit{% else %}⚠ Exceeds limit{% endif %}</div>
+      <div style="font-size:12px;color:var(--muted);margin-top:6px;">Safe limit: 10 mg/m³</div>
+    </div>
+
+    {% set ok_o3 = d.o3 | float <= 100 %}
+    <div class="card pollutant-card">
+      <div class="card-title"><div class="card-title-dot" style="background:{% if ok_o3 %}#16a34a{% else %}#dc2626{% endif %}"></div>O₃</div>
+      <div class="pollutant-value">{{ d.o3 }}</div>
+      <div class="pollutant-unit">ug/m³</div>
+      <div class="pollutant-bar-track">
+        {% set bw = d.o3 | float / 100 * 100 %}
+        <div class="pollutant-bar-fill" style="width: {{ bw if bw < 100 else 100 }}%; background: {% if ok_o3 %}#16a34a{% else %}#dc2626{% endif %}"></div>
+      </div>
+      <div class="limit-badge" style="background:{% if ok_o3 %}#dcfce7{% else %}#fee2e2{% endif %};color:{% if ok_o3 %}#16a34a{% else %}#dc2626{% endif %}">{% if ok_o3 %}✓ Within limit{% else %}⚠ Exceeds limit{% endif %}</div>
+      <div style="font-size:12px;color:var(--muted);margin-top:6px;">Safe limit: 100 ug/m³</div>
+    </div>
+
+    {% set ok_so2 = d.so2 | float <= 20 %}
+    <div class="card pollutant-card">
+      <div class="card-title"><div class="card-title-dot" style="background:{% if ok_so2 %}#16a34a{% else %}#dc2626{% endif %}"></div>SO₂</div>
+      <div class="pollutant-value">{{ d.so2 }}</div>
+      <div class="pollutant-unit">ug/m³</div>
+      <div class="pollutant-bar-track">
+        {% set bw = d.so2 | float / 20 * 100 %}
+        <div class="pollutant-bar-fill" style="width: {{ bw if bw < 100 else 100 }}%; background: {% if ok_so2 %}#16a34a{% else %}#dc2626{% endif %}"></div>
+      </div>
+      <div class="limit-badge" style="background:{% if ok_so2 %}#dcfce7{% else %}#fee2e2{% endif %};color:{% if ok_so2 %}#16a34a{% else %}#dc2626{% endif %}">{% if ok_so2 %}✓ Within limit{% else %}⚠ Exceeds limit{% endif %}</div>
+      <div style="font-size:12px;color:var(--muted);margin-top:6px;">Safe limit: 20 ug/m³</div>
+    </div>
+
   </div>
 
   <!-- PM values & source breakdown -->

@@ -225,7 +225,8 @@
         {% for item in all_days %}
           {% set aqi = item.aqi %}
           {% if aqi <= 50 %}{% set col = '#16a34a' %}{% elif aqi <= 100 %}{% set col = '#eab308' %}{% elif aqi <= 150 %}{% set col = '#ea580c' %}{% else %}{% set col = '#dc2626' %}{% endif %}
-          {% set h = [(aqi / 200 * 180), 180] | min %}
+          {% set h_raw = aqi / 200 * 180 %}
+          {% set h = h_raw if h_raw < 180 else 180 %}
           <div class="chart-col">
             <div class="chart-bar" style="height: {{ h }}px; background: {{ col }}; opacity: {% if loop.first %}1{% else %}0.75{% endif %}">
               <div class="chart-bar-label">{{ aqi }} AQI</div>
@@ -255,7 +256,8 @@
         {% set col = '#dc2626' %} {% set bg = '#fee2e2' %}
         {% set advice = 'Stay indoors. Use air purifier. Avoid outdoor activities.' %}
       {% endif %}
-      {% set pct = [(aqi / 200 * 100), 100] | min %}
+      {% set pct_raw = aqi / 200 * 100 %}
+      {% set pct = pct_raw if pct_raw < 100 else 100 %}
 
       <div class="forecast-card" style="border-top: 3px solid {{ col }}">
         <div class="forecast-day">{{ item.day }}</div>

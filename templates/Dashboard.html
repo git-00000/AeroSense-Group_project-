@@ -201,27 +201,38 @@
 <!-- Stats bar -->
 <div class="stats-bar">
   <div class="stats-inner">
-    {% set good_count = cities | selectattr('aqi', 'le', 50) | list | length %}
-    {% set moderate_count = cities | selectattr('aqi', 'gt', 50) | selectattr('aqi', 'le', 100) | list | length %}
-    {% set unhealthy_count = cities | selectattr('aqi', 'gt', 100) | list | length %}
+    {% set ns = namespace(good=0, moderate=0, unhealthy=0, total_aqi=0) %}
+    {% for city in cities %}
+      {% if city.aqi is defined %}
+        {% set ns.total_aqi = ns.total_aqi + city.aqi %}
+        {% if city.aqi <= 50 %}
+          {% set ns.good = ns.good + 1 %}
+        {% elif city.aqi <= 100 %}
+          {% set ns.moderate = ns.moderate + 1 %}
+        {% else %}
+          {% set ns.unhealthy = ns.unhealthy + 1 %}
+        {% endif %}
+      {% endif %}
+    {% endfor %}
+    {% set avg_aqi = (ns.total_aqi / cities | length) | round | int if cities | length > 0 else 0 %}
     <div class="stat-item">
       <div class="stat-num">{{ cities | length }}</div>
       <div class="stat-label">Cities Monitored</div>
     </div>
     <div class="stat-item">
-      <div class="stat-num" style="color: #16a34a">{{ good_count }}</div>
+      <div class="stat-num" style="color: #16a34a">{{ ns.good }}</div>
       <div class="stat-label">Good Air Quality</div>
     </div>
     <div class="stat-item">
-      <div class="stat-num" style="color: #ca8a04">{{ moderate_count }}</div>
+      <div class="stat-num" style="color: #ca8a04">{{ ns.moderate }}</div>
       <div class="stat-label">Moderate</div>
     </div>
     <div class="stat-item">
-      <div class="stat-num" style="color: #dc2626">{{ unhealthy_count }}</div>
+      <div class="stat-num" style="color: #dc2626">{{ ns.unhealthy }}</div>
       <div class="stat-label">Needs Attention</div>
     </div>
     <div class="stat-item">
-      <div class="stat-num" style="color: var(--teal)">{{ (cities | sum(attribute='aqi') / cities | length) | round | int }}</div>
+      <div class="stat-num" style="color: var(--teal)">{{ avg_aqi }}</div>
       <div class="stat-label">Average AQI</div>
     </div>
   </div>
@@ -269,7 +280,8 @@
     {% else %}
       {% set col = '#dc2626' %} {% set bg = '#fee2e2' %}
     {% endif %}
-    {% set pct = [aqi / 2.5, 100] | min %}
+    {% set pct_raw = aqi / 2.5 %}
+    {% set pct = pct_raw if pct_raw < 100 else 100 %}
 
     <a href="/details/{{ city.city }}" class="city-card" style="border-top: 3px solid {{ col }}">
       <div class="city-card-header">
