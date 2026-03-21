@@ -15,3 +15,4 @@ urllib3==2.6.3
 Werkzeug==3.1.6
 gunicorn==21.2.0
 flask-mail==0.10.0
+python-dotenv==1.0.0

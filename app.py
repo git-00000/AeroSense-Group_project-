@@ -5,6 +5,11 @@ import datetime
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from flask import Flask, render_template, request, jsonify, send_file
 from flask_mail import Mail, Message
+from pymongo import MongoClient
+from dotenv import load_dotenv
+import os
+
+load_dotenv() 
 
 from reportlab.lib.pagesizes import A4
 from reportlab.lib import colors
@@ -15,23 +20,28 @@ from reportlab.lib.enums import TA_CENTER
 
 app = Flask(__name__)
 
-# ── Mail Config (must be BEFORE mail = Mail(app)) ──────────────
 app.config['MAIL_SERVER']         = 'smtp.gmail.com'
 app.config['MAIL_PORT']           = 587
 app.config['MAIL_USE_TLS']        = True
-app.config['MAIL_USERNAME']       = 'your_gmail@gmail.com'      # ← replace
-app.config['MAIL_PASSWORD']       = 'your_app_password_here'    # ← replace (Gmail App Password)
-app.config['MAIL_DEFAULT_SENDER'] = ('BreathIQ', 'your_gmail@gmail.com')  # ← replace
+app.config['MAIL_USERNAME']       = os.environ.get('MAIL_USERNAME')
+app.config['MAIL_PASSWORD']       = os.environ.get('MAIL_PASSWORD')
+app.config['MAIL_DEFAULT_SENDER'] = ('BreathIQ', os.environ.get('MAIL_USERNAME'))
 
 mail = Mail(app)
 
-WAQI_TOKEN = "5903252b34b85498f7266d71d6723b9deee0250f"
+try:
+    mongo_client = MongoClient(os.environ.get('MONGO_URI'), serverSelectionTimeoutMS=5000)
+    db           = mongo_client['breathiq']  
+    reports_col  = db['reports']              
+    mongo_client.server_info()    
+    print("✅ MongoDB connected successfully")
+except Exception as e:
+    print(f"⚠️ MongoDB connection failed: {e}")
+    reports_col = None
+
+WAQI_TOKEN = os.environ.get('WAQI_TOKEN')
 BASE_URL   = "https://api.waqi.info/feed/{city}/?token={token}"
 
-
-# ═══════════════════════════════════════════════════════════════
-#  HELPER FUNCTIONS
-# ═══════════════════════════════════════════════════════════════
 
 def aqi_meta(aqi):
     if aqi <= 50:
@@ -92,21 +102,12 @@ def get_detailed_aqi(city):
         dust     = 100 - traffic - industry
 
         return {
-            "name":       data['data']['city']['name'],
-            "aqi":        aqi,
-            "status":     status,
-            "color":      color,
-            "safety":     safety,
-            "suggestion": suggestion,
-            "no2":        no2,
-            "co":         co,
-            "o3":         o3,
-            "so2":        so2,
-            "pm25":       pm25 or "N/A",
-            "pm10":       pm10 or "N/A",
-            "traffic":    traffic,
-            "industry":   industry,
-            "dust":       dust,
+            "name": data['data']['city']['name'], "aqi": aqi,
+            "status": status, "color": color, "safety": safety,
+            "suggestion": suggestion, "no2": no2, "co": co,
+            "o3": o3, "so2": so2,
+            "pm25": pm25 or "N/A", "pm10": pm10 or "N/A",
+            "traffic": traffic, "industry": industry, "dust": dust,
         }
     except Exception as e:
         return {"error": str(e)}
@@ -117,15 +118,13 @@ def get_detailed_aqi(city):
 # ═══════════════════════════════════════════════════════════════
 
 def generate_report_pdf(d):
-    buf  = io.BytesIO()
-    W    = 170 * mm
-
+    buf   = io.BytesIO()
+    W     = 170 * mm
     TEAL  = colors.HexColor("#0d9488")
     DARK  = colors.HexColor("#0f172a")
     MUTED = colors.HexColor("#64748b")
     LIGHT = colors.HexColor("#f1f5f9")
-
-    aqi = d["aqi"]
+    aqi   = d["aqi"]
     AQI_COLOR = (colors.HexColor("#15803d") if aqi <= 50  else
                  colors.HexColor("#ca8a04") if aqi <= 100 else
                  colors.HexColor("#991b1b") if aqi <= 150 else
@@ -142,91 +141,64 @@ def generate_report_pdf(d):
     story   = []
     now_str = datetime.datetime.now().strftime("%d %B %Y, %I:%M %p")
 
-    # Header banner
     banner = Table([[
         [P("<b>BreathIQ</b>", fontSize=20, textColor=colors.white, fontName="Helvetica-Bold"),
          P("Air Quality Report", fontSize=10, textColor=colors.HexColor("#94a3b8"))],
-        P("Generated: " + now_str, fontSize=9,
-          textColor=colors.HexColor("#94a3b8"), alignment=2)
+        P("Generated: " + now_str, fontSize=9, textColor=colors.HexColor("#94a3b8"), alignment=2)
     ]], colWidths=[W * 0.6, W * 0.4])
     banner.setStyle(TableStyle([
-        ("BACKGROUND",    (0,0), (-1,-1), DARK),
-        ("TOPPADDING",    (0,0), (-1,-1), 14),
-        ("BOTTOMPADDING", (0,0), (-1,-1), 14),
-        ("LEFTPADDING",   (0,0), (-1,-1), 16),
-        ("RIGHTPADDING",  (0,0), (-1,-1), 16),
-        ("VALIGN",        (0,0), (-1,-1), "MIDDLE"),
+        ("BACKGROUND", (0,0), (-1,-1), DARK), ("TOPPADDING", (0,0), (-1,-1), 14),
+        ("BOTTOMPADDING", (0,0), (-1,-1), 14), ("LEFTPADDING", (0,0), (-1,-1), 16),
+        ("RIGHTPADDING", (0,0), (-1,-1), 16), ("VALIGN", (0,0), (-1,-1), "MIDDLE"),
     ]))
     story += [banner, Spacer(1, 8*mm)]
+    story += [P(d["name"], fontSize=28, fontName="Helvetica-Bold", textColor=DARK),
+              Spacer(1, 5*mm), HRFlowable(width=W, color=LIGHT, thickness=1.5), Spacer(1, 5*mm)]
 
-    # City title
-    story += [
-        P(d["name"], fontSize=28, fontName="Helvetica-Bold", textColor=DARK,
-          spaceBefore=0, spaceAfter=6),
-        Spacer(1, 5*mm),
-        HRFlowable(width=W, color=LIGHT, thickness=1.5),
-        Spacer(1, 5*mm),
-    ]
-
-    # AQI block
     aqi_block = Table([[
         P("<b>" + str(aqi) + "</b>", fontSize=52, textColor=AQI_COLOR, fontName="Helvetica-Bold"),
-        [P("<b>Status</b>", fontSize=9, textColor=MUTED),
-         Spacer(1, 3),
+        [P("<b>Status</b>", fontSize=9, textColor=MUTED), Spacer(1, 3),
          P("<b>" + d["status"] + "</b>", fontSize=15, textColor=AQI_COLOR, fontName="Helvetica-Bold"),
-         Spacer(1, 6),
-         P(d["safety"], fontSize=9, textColor=MUTED, leading=13)]
+         Spacer(1, 6), P(d["safety"], fontSize=9, textColor=MUTED, leading=13)]
     ]], colWidths=[50*mm, W - 50*mm])
     aqi_block.setStyle(TableStyle([
-        ("VALIGN",        (0,0), (-1,-1), "MIDDLE"),
-        ("BACKGROUND",    (0,0), (-1,-1), LIGHT),
-        ("TOPPADDING",    (0,0), (-1,-1), 12),
-        ("BOTTOMPADDING", (0,0), (-1,-1), 12),
-        ("LEFTPADDING",   (0,0), (-1,-1), 16),
-        ("RIGHTPADDING",  (0,0), (-1,-1), 16),
+        ("VALIGN", (0,0), (-1,-1), "MIDDLE"), ("BACKGROUND", (0,0), (-1,-1), LIGHT),
+        ("TOPPADDING", (0,0), (-1,-1), 12), ("BOTTOMPADDING", (0,0), (-1,-1), 12),
+        ("LEFTPADDING", (0,0), (-1,-1), 16), ("RIGHTPADDING", (0,0), (-1,-1), 16),
     ]))
     story += [aqi_block, Spacer(1, 7*mm)]
 
-    # Gas concentrations
     story += [P("<b>Gas Concentrations</b>", fontSize=12, textColor=DARK, spaceAfter=4)]
     gas_rows = [["Pollutant", "Measured", "Safe Limit", "Assessment"]]
-    for name, val, limit, unit in [
-        ("NO2 (Nitrogen Dioxide)", d["no2"], 40,  "ug/m3"),
-        ("CO (Carbon Monoxide)",   d["co"],  10,  "mg/m3"),
-        ("O3 (Ozone)",             d["o3"],  100, "ug/m3"),
-        ("SO2 (Sulphur Dioxide)",  d["so2"], 20,  "ug/m3"),
+    for gname, val, limit, unit in [
+        ("NO2 (Nitrogen Dioxide)", d["no2"], 40, "ug/m3"),
+        ("CO (Carbon Monoxide)", d["co"], 10, "mg/m3"),
+        ("O3 (Ozone)", d["o3"], 100, "ug/m3"),
+        ("SO2 (Sulphur Dioxide)", d["so2"], 20, "ug/m3"),
     ]:
         ok = float(val) <= limit
-        gas_rows.append([name, str(val) + " " + unit, str(limit) + " " + unit,
+        gas_rows.append([gname, str(val)+" "+unit, str(limit)+" "+unit,
                          "Within Limit" if ok else "Exceeds Limit"])
 
     gas_table = Table(gas_rows, colWidths=[70*mm, 35*mm, 35*mm, 30*mm])
     gas_table.setStyle(TableStyle([
-        ("BACKGROUND",    (0,0), (-1,0),  DARK),
-        ("TEXTCOLOR",     (0,0), (-1,0),  colors.white),
-        ("FONTNAME",      (0,0), (-1,0),  "Helvetica-Bold"),
-        ("FONTSIZE",      (0,0), (-1,-1), 9),
-        ("ROWBACKGROUNDS",(0,1), (-1,-1), [colors.white, LIGHT]),
-        ("GRID",          (0,0), (-1,-1), 0.4, colors.HexColor("#e2e8f0")),
-        ("TOPPADDING",    (0,0), (-1,-1), 7),
-        ("BOTTOMPADDING", (0,0), (-1,-1), 7),
-        ("LEFTPADDING",   (0,0), (-1,-1), 10),
-        ("RIGHTPADDING",  (0,0), (-1,-1), 10),
-        ("ALIGN",         (1,0), (-1,-1), "CENTER"),
+        ("BACKGROUND", (0,0), (-1,0), DARK), ("TEXTCOLOR", (0,0), (-1,0), colors.white),
+        ("FONTNAME", (0,0), (-1,0), "Helvetica-Bold"), ("FONTSIZE", (0,0), (-1,-1), 9),
+        ("ROWBACKGROUNDS", (0,1), (-1,-1), [colors.white, LIGHT]),
+        ("GRID", (0,0), (-1,-1), 0.4, colors.HexColor("#e2e8f0")),
+        ("TOPPADDING", (0,0), (-1,-1), 7), ("BOTTOMPADDING", (0,0), (-1,-1), 7),
+        ("LEFTPADDING", (0,0), (-1,-1), 10), ("RIGHTPADDING", (0,0), (-1,-1), 10),
+        ("ALIGN", (1,0), (-1,-1), "CENTER"),
     ]))
     story += [gas_table, Spacer(1, 7*mm)]
 
-    # Source breakdown
     story += [P("<b>Pollution Source Breakdown</b>", fontSize=12, textColor=DARK, spaceAfter=4)]
 
     def bar_row(label, pct, bar_color):
         fill_w = max((W - 90*mm) * pct / 100, 1*mm)
         bar_cell = Table([[""]], colWidths=[fill_w])
-        bar_cell.setStyle(TableStyle([
-            ("BACKGROUND",    (0,0), (-1,-1), bar_color),
-            ("TOPPADDING",    (0,0), (-1,-1), 5),
-            ("BOTTOMPADDING", (0,0), (-1,-1), 5),
-        ]))
+        bar_cell.setStyle(TableStyle([("BACKGROUND", (0,0), (-1,-1), bar_color),
+                                      ("TOPPADDING", (0,0), (-1,-1), 5), ("BOTTOMPADDING", (0,0), (-1,-1), 5)]))
         return [P(label, fontSize=9, textColor=DARK), bar_cell,
                 P("<b>" + str(pct) + "%</b>", fontSize=9, textColor=MUTED, alignment=2)]
 
@@ -236,38 +208,27 @@ def generate_report_pdf(d):
         bar_row("Natural Dust / Other", d["dust"],     colors.HexColor("#94a3b8")),
     ], colWidths=[55*mm, W - 90*mm, 35*mm])
     src_table.setStyle(TableStyle([
-        ("VALIGN",        (0,0), (-1,-1), "MIDDLE"),
-        ("ROWBACKGROUNDS",(0,0), (-1,-1), [colors.white, LIGHT]),
-        ("GRID",          (0,0), (-1,-1), 0.4, colors.HexColor("#e2e8f0")),
-        ("TOPPADDING",    (0,0), (-1,-1), 6),
-        ("BOTTOMPADDING", (0,0), (-1,-1), 6),
-        ("LEFTPADDING",   (0,0), (-1,-1), 10),
-        ("RIGHTPADDING",  (0,0), (-1,-1), 10),
+        ("VALIGN", (0,0), (-1,-1), "MIDDLE"),
+        ("ROWBACKGROUNDS", (0,0), (-1,-1), [colors.white, LIGHT]),
+        ("GRID", (0,0), (-1,-1), 0.4, colors.HexColor("#e2e8f0")),
+        ("TOPPADDING", (0,0), (-1,-1), 6), ("BOTTOMPADDING", (0,0), (-1,-1), 6),
+        ("LEFTPADDING", (0,0), (-1,-1), 10), ("RIGHTPADDING", (0,0), (-1,-1), 10),
     ]))
     story += [src_table, Spacer(1, 7*mm)]
 
-    # AI suggestion
     sugg = Table([[
-        P("<b>BreathIQ AI Suggestion</b>", fontSize=10,
-          textColor=colors.white, fontName="Helvetica-Bold"),
+        P("<b>BreathIQ AI Suggestion</b>", fontSize=10, textColor=colors.white, fontName="Helvetica-Bold"),
         P(d["suggestion"], fontSize=9, textColor=colors.HexColor("#ccfbf1"), leading=13)
     ]], colWidths=[60*mm, W - 60*mm])
     sugg.setStyle(TableStyle([
-        ("BACKGROUND",    (0,0), (-1,-1), TEAL),
-        ("TOPPADDING",    (0,0), (-1,-1), 12),
-        ("BOTTOMPADDING", (0,0), (-1,-1), 12),
-        ("LEFTPADDING",   (0,0), (-1,-1), 14),
-        ("RIGHTPADDING",  (0,0), (-1,-1), 14),
-        ("VALIGN",        (0,0), (-1,-1), "TOP"),
+        ("BACKGROUND", (0,0), (-1,-1), TEAL),
+        ("TOPPADDING", (0,0), (-1,-1), 12), ("BOTTOMPADDING", (0,0), (-1,-1), 12),
+        ("LEFTPADDING", (0,0), (-1,-1), 14), ("RIGHTPADDING", (0,0), (-1,-1), 14),
+        ("VALIGN", (0,0), (-1,-1), "TOP"),
     ]))
-    story += [
-        sugg,
-        Spacer(1, 6*mm),
-        HRFlowable(width=W, color=LIGHT, thickness=1),
-        Spacer(1, 3*mm),
-        P("Data sourced from World Air Quality Index (WAQI)  |  BreathIQ 2025",
-          fontSize=8, textColor=MUTED, alignment=TA_CENTER)
-    ]
+    story += [sugg, Spacer(1, 6*mm), HRFlowable(width=W, color=LIGHT, thickness=1), Spacer(1, 3*mm),
+              P("Data sourced from World Air Quality Index (WAQI)  |  BreathIQ 2025",
+                fontSize=8, textColor=MUTED, alignment=TA_CENTER)]
 
     doc.build(story)
     buf.seek(0)
@@ -282,7 +243,6 @@ def generate_report_pdf(d):
 def home():
     return render_template('index.html')
 
-
 @app.route('/api/search', methods=['POST'])
 def search_aqi():
     body      = request.get_json()
@@ -295,7 +255,6 @@ def search_aqi():
     result["redirect"] = "/details/" + city_name
     return jsonify(result)
 
-
 @app.route('/details/<path:city>')
 def details(city):
     d = get_detailed_aqi(city)
@@ -304,7 +263,6 @@ def details(city):
     d["query"] = city
     return render_template('details.html', d=d)
 
-
 @app.route('/report/<path:city>')
 def download_report(city):
     d = get_detailed_aqi(city)
@@ -312,9 +270,7 @@ def download_report(city):
         return "City not found: " + city, 404
     buf      = generate_report_pdf(d)
     filename = "BreathIQ_" + city.replace(' ', '_') + "_Report.pdf"
-    return send_file(buf, as_attachment=True,
-                     download_name=filename, mimetype='application/pdf')
-
+    return send_file(buf, as_attachment=True, download_name=filename, mimetype='application/pdf')
 
 @app.route('/dashboard')
 def dashboard():
@@ -327,7 +283,6 @@ def dashboard():
         "Paris":    {"city": "Paris",    "aqi": 75,  "status": "Moderate",  "color": "#ca8a04"},
         "Beijing":  {"city": "Beijing",  "aqi": 178, "status": "Unhealthy", "color": "#7f1d1d"},
     }
-
     city_data = []
     with ThreadPoolExecutor(max_workers=6) as executor:
         futures = {executor.submit(get_real_aqi, c): c for c in featured}
@@ -338,16 +293,13 @@ def dashboard():
                     city_data.append(r)
             except Exception:
                 pass
-
     fetched_names = [c["city"] for c in city_data]
     for name, data in fallback.items():
         if not any(name.lower() in fn.lower() for fn in fetched_names):
             city_data.append(data)
-
     order = {c: i for i, c in enumerate(featured)}
     city_data.sort(key=lambda x: order.get(x.get("city", ""), 99))
     return render_template('dashboard.html', cities=city_data)
-
 
 @app.route('/forecast')
 def forecast():
@@ -358,14 +310,13 @@ def forecast():
     ]
     return render_template('forecast.html', forecast_data=predictions)
 
-
 @app.route('/about')
 def about():
     return render_template('about.html')
 
 
 # ═══════════════════════════════════════════════════════════════
-#  HEALTH REPORT EMAIL API
+#  HEALTH REPORT API  —  MongoDB save + Email send
 # ═══════════════════════════════════════════════════════════════
 
 @app.route('/api/health-report', methods=['POST'])
@@ -382,19 +333,36 @@ def health_report():
         if not email_to or '@' not in email_to:
             return jsonify({'success': False, 'error': 'Invalid email address'}), 400
 
-        # Fetch live AQI
+        # ── 1. MongoDB তে user details save করো ─────────────
+        if reports_col is not None:
+            try:
+                reports_col.insert_one({
+                    "name":       name,
+                    "age":        age,
+                    "area":       area,
+                    "health":     health,
+                    "outdoor":    outdoor,
+                    "email":      email_to,
+                    "created_at": datetime.datetime.utcnow(),
+                })
+                print(f"✅ Saved to MongoDB: {name} — {area}")
+            except Exception as db_err:
+                print(f"⚠️ MongoDB save failed: {db_err}")
+                # DB fail হলেও email পাঠানো চলবে
+
+        # ── 2. Live AQI fetch করো ───────────────────────────
         aqi_data   = get_detailed_aqi(area)
         aqi        = aqi_data.get('aqi', 'N/A')
         status     = aqi_data.get('status', 'N/A')
         safety     = aqi_data.get('safety', '')
         suggestion = aqi_data.get('suggestion', '')
         no2        = aqi_data.get('no2', 'N/A')
-        co         = aqi_data.get('co', 'N/A')
-        o3         = aqi_data.get('o3', 'N/A')
+        co         = aqi_data.get('co',  'N/A')
+        o3         = aqi_data.get('o3',  'N/A')
         so2        = aqi_data.get('so2', 'N/A')
-        traffic    = aqi_data.get('traffic', 'N/A')
+        traffic    = aqi_data.get('traffic',  'N/A')
         industry   = aqi_data.get('industry', 'N/A')
-        dust       = aqi_data.get('dust', 'N/A')
+        dust       = aqi_data.get('dust',     'N/A')
 
         sensitive_conditions = ['Asthma', 'Heart Disease', 'Respiratory Issues', 'Allergies']
         has_sensitive = any(c in health for c in sensitive_conditions)
@@ -412,13 +380,9 @@ def health_report():
 
         now_str = datetime.datetime.now().strftime('%d %B %Y, %I:%M %p')
 
+        # ── 3. Email পাঠাও ──────────────────────────────────
         html_body = f"""<!DOCTYPE html>
-<html>
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width,initial-scale=1.0">
-<title>BreathIQ Health Report</title>
-</head>
+<html><head><meta charset="UTF-8"><title>BreathIQ Health Report</title></head>
 <body style="margin:0;padding:0;background:#f4f9f8;font-family:Arial,sans-serif;">
 <table width="100%" cellpadding="0" cellspacing="0" style="background:#f4f9f8;padding:32px 0;">
 <tr><td align="center">
@@ -434,29 +398,26 @@ def health_report():
 
   <tr><td style="background:#fff;padding:32px 36px 20px;">
     <div style="font-size:26px;font-weight:700;color:#0d1f1c;margin-bottom:8px;">Hello, {name}! 👋</div>
-    <div style="font-size:15px;color:#4a6260;line-height:1.6;">
-      Here is your personalised air quality health report for <strong>{area}</strong>.
-    </div>
+    <div style="font-size:15px;color:#4a6260;line-height:1.6;">Your personalised air quality health report for <strong>{area}</strong>.</div>
   </td></tr>
 
   <tr><td style="background:#fff;padding:0 36px 28px;">
-    <table width="100%" style="background:#f4f9f8;border-radius:16px;">
-      <tr><td style="padding:28px 32px;">
-        <div style="font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:#4a6260;margin-bottom:8px;">Current AQI · {area}</div>
-        <div style="font-size:72px;font-weight:800;color:{aqi_color};line-height:1;">{aqi}</div>
-        <div style="display:inline-block;padding:6px 16px;border-radius:100px;color:{aqi_color};font-size:14px;font-weight:600;margin-top:10px;border:2px solid {aqi_color};">{status}</div>
-        <div style="font-size:14px;color:#4a6260;margin-top:14px;line-height:1.6;">{safety}</div>
-      </td></tr>
-    </table>
+    <table width="100%" style="background:#f4f9f8;border-radius:16px;"><tr><td style="padding:28px 32px;">
+      <div style="font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:#4a6260;margin-bottom:8px;">Current AQI · {area}</div>
+      <div style="font-size:72px;font-weight:800;color:{aqi_color};line-height:1;">{aqi}</div>
+      <div style="display:inline-block;padding:6px 16px;border-radius:100px;color:{aqi_color};font-size:14px;font-weight:600;margin-top:10px;border:2px solid {aqi_color};">{status}</div>
+      <div style="font-size:14px;color:#4a6260;margin-top:14px;line-height:1.6;">{safety}</div>
+    </td></tr></table>
   </td></tr>
 
   <tr><td style="background:#fff;padding:0 36px 28px;">
     <div style="font-size:14px;font-weight:700;text-transform:uppercase;letter-spacing:0.8px;color:#4a6260;margin-bottom:16px;">Your Health Profile</div>
     <table width="100%" style="border-collapse:collapse;">
-      <tr style="background:#f4f9f8;"><td style="padding:12px 16px;font-size:13px;color:#4a6260;font-weight:600;width:40%;">Age</td><td style="padding:12px 16px;font-size:14px;color:#0d1f1c;">{age} years</td></tr>
-      <tr><td style="padding:12px 16px;font-size:13px;color:#4a6260;font-weight:600;">Location</td><td style="padding:12px 16px;font-size:14px;color:#0d1f1c;">{area}</td></tr>
-      <tr style="background:#f4f9f8;"><td style="padding:12px 16px;font-size:13px;color:#4a6260;font-weight:600;">Health Conditions</td><td style="padding:12px 16px;font-size:14px;color:#0d1f1c;">{health}</td></tr>
-      <tr><td style="padding:12px 16px;font-size:13px;color:#4a6260;font-weight:600;">Outdoor Activity</td><td style="padding:12px 16px;font-size:14px;color:#0d1f1c;">{outdoor}</td></tr>
+      <tr style="background:#f4f9f8;"><td style="padding:12px 16px;font-size:13px;color:#4a6260;font-weight:600;width:40%;">Name</td><td style="padding:12px 16px;font-size:14px;color:#0d1f1c;">{name}</td></tr>
+      <tr><td style="padding:12px 16px;font-size:13px;color:#4a6260;font-weight:600;">Age</td><td style="padding:12px 16px;font-size:14px;color:#0d1f1c;">{age} years</td></tr>
+      <tr style="background:#f4f9f8;"><td style="padding:12px 16px;font-size:13px;color:#4a6260;font-weight:600;">Location</td><td style="padding:12px 16px;font-size:14px;color:#0d1f1c;">{area}</td></tr>
+      <tr><td style="padding:12px 16px;font-size:13px;color:#4a6260;font-weight:600;">Health Conditions</td><td style="padding:12px 16px;font-size:14px;color:#0d1f1c;">{health}</td></tr>
+      <tr style="background:#f4f9f8;"><td style="padding:12px 16px;font-size:13px;color:#4a6260;font-weight:600;">Outdoor Activity</td><td style="padding:12px 16px;font-size:14px;color:#0d1f1c;">{outdoor}</td></tr>
     </table>
   </td></tr>
 
@@ -465,42 +426,6 @@ def health_report():
       <div style="font-size:13px;font-weight:700;color:#0a7a6b;margin-bottom:6px;">Personal Risk Assessment</div>
       <div style="font-size:13px;color:#4a6260;line-height:1.6;">{risk_note}</div>
     </div>
-  </td></tr>
-
-  <tr><td style="background:#fff;padding:0 36px 28px;">
-    <div style="font-size:14px;font-weight:700;text-transform:uppercase;letter-spacing:0.8px;color:#4a6260;margin-bottom:16px;">Pollutant Levels</div>
-    <table width="100%" style="border-collapse:collapse;">
-      <tr style="background:#0d1f1c;">
-        <td style="padding:10px 14px;font-size:12px;font-weight:600;color:white;">Pollutant</td>
-        <td style="padding:10px 14px;font-size:12px;font-weight:600;color:white;">Measured</td>
-        <td style="padding:10px 14px;font-size:12px;font-weight:600;color:white;">Safe Limit</td>
-        <td style="padding:10px 14px;font-size:12px;font-weight:600;color:white;">Status</td>
-      </tr>
-      <tr style="background:#f4f9f8;">
-        <td style="padding:11px 14px;font-size:13px;color:#0d1f1c;font-weight:600;">NO₂</td>
-        <td style="padding:11px 14px;font-size:13px;color:#0d1f1c;">{no2} µg/m³</td>
-        <td style="padding:11px 14px;font-size:13px;color:#4a6260;">40 µg/m³</td>
-        <td style="padding:11px 14px;font-size:12px;font-weight:700;color:{'#16a34a' if isinstance(no2, (int,float)) and no2<=40 else '#dc2626'};">{'✓ OK' if isinstance(no2, (int,float)) and no2<=40 else '⚠ HIGH'}</td>
-      </tr>
-      <tr>
-        <td style="padding:11px 14px;font-size:13px;color:#0d1f1c;font-weight:600;">CO</td>
-        <td style="padding:11px 14px;font-size:13px;color:#0d1f1c;">{co} mg/m³</td>
-        <td style="padding:11px 14px;font-size:13px;color:#4a6260;">10 mg/m³</td>
-        <td style="padding:11px 14px;font-size:12px;font-weight:700;color:{'#16a34a' if isinstance(co, (int,float)) and co<=10 else '#dc2626'};">{'✓ OK' if isinstance(co, (int,float)) and co<=10 else '⚠ HIGH'}</td>
-      </tr>
-      <tr style="background:#f4f9f8;">
-        <td style="padding:11px 14px;font-size:13px;color:#0d1f1c;font-weight:600;">O₃</td>
-        <td style="padding:11px 14px;font-size:13px;color:#0d1f1c;">{o3} µg/m³</td>
-        <td style="padding:11px 14px;font-size:13px;color:#4a6260;">100 µg/m³</td>
-        <td style="padding:11px 14px;font-size:12px;font-weight:700;color:{'#16a34a' if isinstance(o3, (int,float)) and o3<=100 else '#dc2626'};">{'✓ OK' if isinstance(o3, (int,float)) and o3<=100 else '⚠ HIGH'}</td>
-      </tr>
-      <tr>
-        <td style="padding:11px 14px;font-size:13px;color:#0d1f1c;font-weight:600;">SO₂</td>
-        <td style="padding:11px 14px;font-size:13px;color:#0d1f1c;">{so2} µg/m³</td>
-        <td style="padding:11px 14px;font-size:13px;color:#4a6260;">20 µg/m³</td>
-        <td style="padding:11px 14px;font-size:12px;font-weight:700;color:{'#16a34a' if isinstance(so2, (int,float)) and so2<=20 else '#dc2626'};">{'✓ OK' if isinstance(so2, (int,float)) and so2<=20 else '⚠ HIGH'}</td>
-      </tr>
-    </table>
   </td></tr>
 
   <tr><td style="background:#fff;padding:0 36px 28px;">
@@ -513,14 +438,11 @@ def health_report():
   <tr><td style="background:#0d1f1c;border-radius:0 0 20px 20px;padding:24px 36px;text-align:center;">
     <div style="font-size:14px;font-weight:600;color:white;margin-bottom:6px;">🌿 BreathIQ</div>
     <div style="font-size:12px;color:rgba(255,255,255,0.35);">Data sourced from World Air Quality Index (WAQI) · {now_str}</div>
-    <div style="font-size:11px;color:rgba(255,255,255,0.2);margin-top:8px;">This report was generated for {email_to}</div>
+    <div style="font-size:11px;color:rgba(255,255,255,0.2);margin-top:8px;">Generated for {email_to}</div>
   </td></tr>
 
-</table>
-</td></tr>
-</table>
-</body>
-</html>"""
+</table></td></tr></table>
+</body></html>"""
 
         msg = Message(
             subject=f"🌿 Your BreathIQ Air Quality Health Report — {area}",
@@ -533,8 +455,6 @@ def health_report():
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)}), 500
 
-
-# ═══════════════════════════════════════════════════════════════
 
 if __name__ == '__main__':
     app.run(debug=False)
