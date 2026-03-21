@@ -1,0 +1,35 @@
+# ── Environment & Secrets ──────────────────
+.env
+.env.local
+.env.production
+
+# ── Python ─────────────────────────────────
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.Python
+
+# ── Virtual Environment ─────────────────────
+venv/
+.venv/
+env/
+ENV/
+
+# ── IDE / Editor ───────────────────────────
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# ── OS Files ───────────────────────────────
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# ── Logs ───────────────────────────────────
+*.log
+logs/
+
+# ── Render / Deployment ────────────────────
+.render/
