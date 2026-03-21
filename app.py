@@ -310,11 +310,6 @@ def forecast():
     ]
     return render_template('forecast.html', forecast_data=predictions)
 
-@app.route('/about')
-def about():
-    return render_template('about.html')
-
-
 # ═══════════════════════════════════════════════════════════════
 #  HEALTH REPORT API  —  MongoDB save + Email send
 # ═══════════════════════════════════════════════════════════════

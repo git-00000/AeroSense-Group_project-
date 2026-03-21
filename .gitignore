@@ -6,11 +6,7 @@ __pycache__/
 *.pyd
 .Python
 
-# ── Virtual Environment ─────────────────────
-venv/
-.venv/
-env/
-ENV/
+
 
 # ── IDE / Editor ───────────────────────────
 .vscode/
