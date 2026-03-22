@@ -272,6 +272,14 @@ def download_report(city):
     filename = "BreathIQ_" + city.replace(' ', '_') + "_Report.pdf"
     return send_file(buf, as_attachment=True, download_name=filename, mimetype='application/pdf')
 
+@app.route('/test-env')
+def test_env():
+    return jsonify({
+        'MAIL_USERNAME': os.environ.get('MAIL_USERNAME'),
+        'MAIL_PASSWORD': bool(os.environ.get('MAIL_PASSWORD')),
+        'WAQI_TOKEN':    bool(os.environ.get('WAQI_TOKEN')),
+    })
+
 @app.route('/dashboard')
 def dashboard():
     featured = ["Delhi", "New York", "London", "Tokyo", "Paris", "Beijing"]
