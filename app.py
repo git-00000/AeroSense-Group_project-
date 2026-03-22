@@ -21,8 +21,9 @@ from reportlab.lib.enums import TA_CENTER
 app = Flask(__name__)
 
 app.config['MAIL_SERVER']         = 'smtp.gmail.com'
-app.config['MAIL_PORT']           = 587
-app.config['MAIL_USE_TLS']        = True
+app.config['MAIL_PORT']    = 465
+app.config['MAIL_USE_TLS'] = False
+app.config['MAIL_USE_SSL'] = True
 app.config['MAIL_USERNAME']       = os.environ.get('MAIL_USERNAME')
 app.config['MAIL_PASSWORD']       = os.environ.get('MAIL_PASSWORD')
 app.config['MAIL_DEFAULT_SENDER'] = ('BreathIQ', os.environ.get('MAIL_USERNAME'))
@@ -271,14 +272,6 @@ def download_report(city):
     buf      = generate_report_pdf(d)
     filename = "BreathIQ_" + city.replace(' ', '_') + "_Report.pdf"
     return send_file(buf, as_attachment=True, download_name=filename, mimetype='application/pdf')
-
-@app.route('/test-env')
-def test_env():
-    return jsonify({
-        'MAIL_USERNAME': os.environ.get('MAIL_USERNAME'),
-        'MAIL_PASSWORD': bool(os.environ.get('MAIL_PASSWORD')),
-        'WAQI_TOKEN':    bool(os.environ.get('WAQI_TOKEN')),
-    })
 
 @app.route('/dashboard')
 def dashboard():
