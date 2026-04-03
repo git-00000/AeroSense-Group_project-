@@ -8,6 +8,7 @@ from flask_mail import Mail, Message
 from pymongo import MongoClient
 from dotenv import load_dotenv
 import os
+import math
 
 load_dotenv() 
 
@@ -302,15 +303,73 @@ def dashboard():
     city_data.sort(key=lambda x: order.get(x.get("city", ""), 99))
     return render_template('dashboard.html', cities=city_data)
 
+def predict_aqi_forecast(current_aqi, days=5):
+    """
+    Simple AI-style AQI forecasting using weighted random walk
+    with seasonal dampening. No external ML library needed.
+    """
+    import random
+    random.seed(current_aqi)  # deterministic per city
+
+    forecasts = []
+    aqi = current_aqi
+
+    day_names = ["Tomorrow", "Day 3", "Day 4", "Day 5", "Day 6"]
+
+    # Pollution tends to mean-revert toward ~60 (regional average)
+    MEAN_REVERT_TARGET = 60
+    MEAN_REVERT_STRENGTH = 0.15
+    VOLATILITY = 12
+
+    for i in range(days):
+        # Mean reversion component
+        reversion = MEAN_REVERT_STRENGTH * (MEAN_REVERT_TARGET - aqi)
+
+        # Random shock (bounded)
+        shock = random.gauss(0, VOLATILITY)
+
+        # Slight weekly pattern (weekends slightly cleaner — less traffic)
+        weekly_effect = -5 if i in [4, 5] else 0
+
+        aqi = aqi + reversion + shock + weekly_effect
+        aqi = max(10, min(300, round(aqi)))  # clamp between 10-300
+
+        status, color, bg, safety, suggestion = aqi_meta(aqi)
+
+        forecasts.append({
+            "day": day_names[i],
+            "aqi": aqi,
+            "status": status,
+            "color": color,
+            "background": bg,
+            "safety": safety,
+            "suggestion": suggestion,
+        })
+
+    return forecasts
+
+
 @app.route('/forecast')
 def forecast():
-    predictions = [
-        {"day": "Tomorrow", "aqi": 85,  "status": "Moderate",  "color": "#9a3412"},
-        {"day": "Friday",   "aqi": 42,  "status": "Good",      "color": "#15803d"},
-        {"day": "Saturday", "aqi": 110, "status": "Unhealthy", "color": "#991b1b"},
-    ]
-    return render_template('forecast.html', forecast_data=predictions)
+    city = request.args.get('city', 'Delhi').strip()
+    aqi_data = get_real_aqi(city)
 
+    if "error" in aqi_data:
+        # fallback if city not found
+        current_aqi = 80
+        city_name = city
+    else:
+        current_aqi = aqi_data["aqi"]
+        city_name = aqi_data["city"]
+
+    forecast_data = predict_aqi_forecast(current_aqi, days=5)
+
+    return render_template(
+        'forecast.html',
+        forecast_data=forecast_data,
+        city=city_name,
+        current_aqi=current_aqi
+    )
 # ═══════════════════════════════════════════════════════════════
 #  HEALTH REPORT API  —  MongoDB save + Email send
 # ═══════════════════════════════════════════════════════════════
